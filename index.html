@@ -106,6 +106,8 @@ textarea{width:100%;height:150px;background:#0b0f14;color:var(--text);border:1px
 .mrow{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;line-height:1.55}
 .mrow b{min-width:86px;color:var(--gold)}
 .mrow span{color:#c9d1d9}
+.passbox{width:100%;background:#0b0f14;color:var(--text);border:1px solid var(--line);border-radius:10px;
+  padding:12px;font-size:20px;letter-spacing:6px;text-align:center;margin:10px 0;font-family:Consolas,monospace}
 @media(max-width:560px){.grid{grid-template-columns:1fr}.logo{font-size:24px}.dictbtn{width:62px;font-size:11px;right:6px}}
 </style>
 </head>
@@ -119,6 +121,39 @@ textarea{width:100%;height:150px;background:#0b0f14;color:var(--text);border:1px
 const STRUCT=JSON.parse(document.getElementById('structure').textContent);
 const LEVELS=STRUCT.levels;
 const CHS=STRUCT.chapters;
+const ITEMS=[
+ {id:'term',   name:'術語卡',   rarity:'C',price:4,desc:'每題答對 +3 分',flat:3},
+ {id:'sticky', name:'便籤',     rarity:'C',price:4,desc:'連擊 ≥2 時，每題額外 +3 分',comboMin:2,comboFlat:3},
+ {id:'tie',    name:'領帶',     rarity:'C',price:4,desc:'每題答對 +1 金幣',goldPerCorrect:1},
+ {id:'eraser', name:'橡皮擦',   rarity:'C',price:5,desc:'每關 2 次提示：排除一個錯誤選項',hints:2},
+ {id:'coffee', name:'咖啡',     rarity:'C',price:5,desc:'最大生命 +1',maxHp:1},
+ {id:'insure', name:'保險單',   rarity:'C',price:4,desc:'關卡失敗返還 3 金幣',failRefund:3},
+ {id:'map',    name:'思維導圖', rarity:'U',price:6,desc:'連擊 ≥3 時，每題分數 ×1.5',comboMin:3,comboMult:1.5},
+ {id:'glasses',name:'墨鏡',     rarity:'U',price:6,desc:'暴擊率 +10%',critAdd:0.10},
+ {id:'notes',  name:'教授筆記', rarity:'U',price:6,desc:'商店購買與刷新價格 −25%',shopDisc:0.25},
+ {id:'copier', name:'複印機',   rarity:'U',price:6,desc:'三選一變四選一',rewardExtra:1},
+ {id:'overtime',name:'加時卡',  rarity:'U',price:5,desc:'Boss 計時 +5 分鐘',bossTime:300},
+ {id:'lucky',  name:'幸運星',   rarity:'U',price:6,desc:'每關第一題分數 ×3',firstMult:3},
+ {id:'timer',  name:'計時器',   rarity:'U',price:6,desc:'每關最後一題分數 ×2',lastMult:2},
+ {id:'medal',  name:'黃金徽章', rarity:'R',price:9,desc:'每題答對 +2 金幣',goldPerCorrect:2},
+ {id:'double', name:'雙倍下注', rarity:'R',price:9,desc:'分數 ×1.35，但最大生命 −1',mult:1.35,maxHp:-1},
+ {id:'calc',   name:'計算器',   rarity:'R',price:9,desc:'分數 ×1.25',mult:1.25},
+ {id:'coin',   name:'幸運硬幣', rarity:'R',price:9,desc:'暴擊率 +15%，暴擊 ×3',critAdd:0.15,critMult:3},
+ {id:'amulet', name:'保命符',   rarity:'R',price:9,desc:'每關一次：致命傷害後保留 1 生命',revive:1},
+ {id:'belt',   name:'黑帶',     rarity:'R',price:9,desc:'連擊倍率額外 +0.05/層（越連越猛）',comboScale:0.05},
+ {id:'piggy',    name:'存錢罐',   rarity:'C',price:4,desc:'每持有 10 金幣，基礎分 +1（上限 +5）',goldFlat:{per:10,cap:5}},
+ {id:'ledger',   name:'記賬本',   rarity:'C',price:4,desc:'關卡通過額外 +3 金幣',endGold:3},
+ {id:'armor',    name:'防彈衣',   rarity:'C',price:4,desc:'每關首次答錯不扣血',shield:1},
+ {id:'refbook',  name:'參考書',   rarity:'C',price:4,desc:'每關 +1 次提示',hints:1},
+ {id:'starter',  name:'起跑器',   rarity:'C',price:4,desc:'每關第 2 題分數 ×2',posMult:{2:2}},
+ {id:'accel',    name:'加速帶',   rarity:'U',price:6,desc:'第 4 題起，每題 +5 分',lateFlat:5},
+ {id:'member',   name:'會員卡',   rarity:'C',price:4,desc:'商店購買與刷新 −15%',shopDisc:0.15},
+ {id:'wholesale',name:'批發商',   rarity:'U',price:6,desc:'商店多 1 格商品',shopSlots:1},
+ {id:'metronome',name:'節拍器',   rarity:'C',price:4,desc:'每層連擊 +1 基礎分（上限 +6）',comboPer:6},
+ {id:'repeater', name:'復讀機',   rarity:'U',price:6,desc:'連擊 ≥5 時，每題額外 +8 分',comboMin:5,comboFlat:8},
+ {id:'dice',     name:'骰子',     rarity:'C',price:4,desc:'暴擊率 +5%',critAdd:0.05},
+ {id:'skipper',  name:'跳過券',   rarity:'C',price:4,desc:'每關 1 次：跳過當前題（不扣血、不計分）',skips:1}
+];
 /* 術語詞庫：高頻考試縮寫 */
 const DICT={
  'CIA':'機密性 / 完整性 / 可用性（Confidentiality, Integrity, Availability）',
@@ -295,10 +330,10 @@ function rollItem(){
   for(const it of pool){r-=w[it.rarity];if(r<=0)return it}
   return pool[0];
 }
-function rollOffers(n){
+function rollOffers(n, ch){
   const out=[];const used=new Set(S.items);
   for(let k=0;k<n;k++){
-    const w=rarityW(B.currentLevel?L(B.currentLevel).ch:1);
+    const w=rarityW(ch||1);
     const pool=ITEMS.filter(i=>!used.has(i.id));
     if(!pool.length)break;
     const tot=pool.reduce((a,i)=>a+w[i.rarity],0);let r=Math.random()*tot;let sel=pool[0];
@@ -306,6 +341,10 @@ function rollOffers(n){
     out.push(sel.id);used.add(sel.id);
   }
   return out;
+}
+function currentCh(){
+  const lv=(B&&B.currentLevel)?L(B.currentLevel):null;
+  return lv?lv.ch:1;
 }
 
 /* ================= 計分 ================= */
@@ -334,6 +373,7 @@ function calcScore(idx){
 
 /* ================= 通用 ================= */
 let screen='menu',B=null,timer=null;
+let logoTaps=0,logoTimer=null,cheatErr='';
 const $=()=>document.getElementById('app');
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function fmt(ms){const s=Math.max(0,Math.floor(ms/1000));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;
@@ -368,7 +408,8 @@ function lookup(){
 /* ================= 視圖 ================= */
 function render(){
   const map={menu:viewMenu,map:viewMap,intro:viewIntro,battle:viewBattle,fail:viewFail,reward:viewReward,
-    shop:viewShop,mock:viewMock,mockresult:viewMockResult,review:viewReview,cards:viewCards,import:viewImport};
+    shop:viewShop,mock:viewMock,mockresult:viewMockResult,review:viewReview,cards:viewCards,import:viewImport,
+    cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop};
   $().innerHTML=(map[screen]||viewMenu)();
   if(B&&B.deadline&&(screen==='battle'||screen==='mock'))startTimer();
 }
@@ -530,6 +571,62 @@ function viewShop(){
    <div class="small">賣掉返還半價（向上取整到 1）。</div></div>`;
 }
 
+/* ===== 隱藏作弊模式 ===== */
+function viewCheatLogin(){
+  return `<div class="hdr"><div class="logo" style="font-size:22px">隱藏入口</div>
+    <div class="tagline">輸入密碼</div></div>
+  <div class="panel">
+    <input id="passbox" class="passbox" type="password" inputmode="numeric" autocomplete="off" placeholder="••••••••">
+    ${cheatErr?`<div class="small" style="color:var(--bad)">${cheatErr}</div>`:''}
+    <div class="row"><button class="btn primary small" data-act="cheat-login">確認</button>
+      <button class="btn small ghost" data-act="menu">返回</button></div>
+  </div>`;
+}
+
+function viewCheat(){
+  let h=`<div class="hdr"><div class="logo" style="font-size:22px">作弊模式</div>
+    <div class="tagline">選關跳轉 · 發放對應金幣 · 離開商店後直接開戰</div></div>
+  <div class="panel"><div class="small">目前金幣 💰${S.gold} · 道具 ${S.items.length}/${SLOTS}。<br>
+  跳關只發金幣、不修改星數與通關記錄；作弊商店免費刷新 5 次、最多買 5 件。</div>
+   <div class="row"><button class="btn small ghost" data-act="menu">返回主菜單</button></div></div>`;
+  for(const c of CHS){
+    h+=`<div class="chap"><h3>${c.name}</h3><div class="w">Boss 目標 ${c.bossTarget}</div></div>`;
+    for(const l of levelsOf(c.n)){
+      h+=`<div class="lv" data-act="cheat-jump" data-id="${l.id}" data-boss="0">
+        <div class="nm">${l.name}<span class="tg">目標 ${l.target}</span></div>
+        <div class="st" style="font-size:12px">+💰${cheatGold(l)}</div></div>`;
+    }
+    h+=`<div class="lv boss" data-act="cheat-jump" data-id="${c.n}" data-boss="1">
+      <div class="nm">⚔️ 章末 Boss（20 題 · 目標 ${c.bossTarget}）</div>
+      <div class="st" style="font-size:12px">+💰${cheatGold({target:c.bossTarget})}</div></div>`;
+  }
+  return h;
+}
+
+function viewCheatShop(){
+  const ch=S.cheat;
+  if(!ch)return '<div class="panel center">作弊商店狀態丟失，<button class="btn small" data-act="menu">返回主菜單</button></div>';
+  const disc=shopDisc();
+  const price=(it)=>Math.max(1,Math.round(it.price*(1-disc)));
+  return `<div class="hdr"><div class="logo" style="font-size:22px">作弊商店</div>
+    <div class="tagline">💰${S.gold} · 免費刷新剩 ${ch.rerolls} 次 · 還能買 ${Math.max(0,5-ch.buys)} 件</div></div>
+  <div class="offers">
+   ${ch.offers.map((id,k)=>{const it=ITEMS.find(i=>i.id===id);const p=price(it);
+     const full=S.items.length>=SLOTS||ch.buys>=5;
+     return `<div class="offer ${it.rarity}"><div class="rname">${it.name}<span class="rar">${it.rarity==='C'?'普通':it.rarity==='U'?'稀有':'傳說'}</span></div>
+     <div class="rdesc">${esc(it.desc)}</div>
+     <div class="price">💰${p}</div>
+     <button class="btn small ${S.gold>=p&&!full?'primary':''}" data-act="cheat-buy" data-k="${k}" ${S.gold<p||full?'disabled':''}>${full?'不可買':'購買'}</button></div>`}).join('')||'<div class="small">商店空了。</div>'}
+  </div>
+  <div class="row">
+   <button class="btn small" data-act="cheat-reroll" ${ch.rerolls<=0?'disabled':''}>免費刷新（剩 ${ch.rerolls}）</button>
+   <button class="btn primary small" data-act="cheat-leave">離開並開戰</button>
+  </div>
+  <div class="card"><h4>道具欄 ${S.items.length}/${SLOTS}</h4>
+   <div class="items">${itemChips(true)}</div>
+   <div class="small">賣掉返還半價；作弊商店購買上限 5 件。</div></div>`;
+}
+
 function viewMock(){
   const q=B.qs[B.i];const sel=B.answers[B.i];
   return `<div class="bbar"><div>模擬考 · 第 ${B.i+1} / ${B.qs.length} 題</div>
@@ -684,13 +781,67 @@ function finishBattle(){
     S.boss[B.ch]=1;
   }
   save();
-  S.pending={offers:rollOffers(3+(owned().some(x=>x.rewardExtra)?1:0)),goldGain};
+  S.pending={offers:rollOffers(3+(owned().some(x=>x.rewardExtra)?1:0), currentCh()),goldGain};
   screen='reward';render();
 }
 function openShop(){
-  S.shop={offers:rollOffers(3+sumOwned('shopSlots')),rerollCost:2};
+  S.shop={offers:rollOffers(3+sumOwned('shopSlots'), currentCh()),rerollCost:2};
   screen='shop';render();
 }
+
+/* ===== 作弊模式邏輯 ===== */
+function cheatGold(level){
+  // 略低於正常一關收入（正常約 10–12 金幣），讓作弊跳關不划算
+  return 7+Math.floor((level.target||0)/120);
+}
+function openCheatLogin(){
+  cheatErr='';screen='cheatlogin';render();
+}
+function tryCheatLogin(){
+  const box=document.getElementById('passbox');
+  const v=box?box.value.replace(/\s/g,''):'';
+  if(v==='10281028'){cheatErr='';screen='cheat';render();}
+  else{cheatErr='密碼錯誤';render();}
+}
+function cheatJump(id,boss){
+  const isBoss=boss==='1';
+  let gold, chNum;
+  if(isBoss){
+    const c=CHS.find(x=>x.n===+id);
+    if(!c)return;
+    gold=cheatGold({target:c.bossTarget});
+    chNum=c.n;
+  }else{
+    const lv=L(id);
+    if(!lv)return;
+    gold=cheatGold(lv);
+    chNum=lv.ch;
+  }
+  S.gold+=gold;
+  S.cheat={offers:rollOffers(3+sumOwned('shopSlots'), chNum),rerolls:5,buys:0,levelId:id,boss:isBoss,ch:chNum};
+  save();screen='cheatshop';render();
+}
+function cheatBuy(k){
+  const ch=S.cheat;if(!ch)return;
+  if(ch.buys>=5){alert('作弊商店最多買 5 件');return}
+  const id=ch.offers[k];if(!id)return;
+  if(S.items.length>=SLOTS){alert('道具欄已滿，先賣一個');return}
+  const it=ITEMS.find(i=>i.id===id);
+  const p=Math.max(1,Math.round(it.price*(1-shopDisc())));
+  if(S.gold<p){alert('金幣不夠');return}
+  S.gold-=p;S.items.push(id);ch.buys++;ch.offers.splice(k,1);save();render();
+}
+function cheatReroll(){
+  const ch=S.cheat;if(!ch||ch.rerolls<=0)return;
+  ch.rerolls--;ch.offers=rollOffers(3+sumOwned('shopSlots'), ch.ch||1);save();render();
+}
+function cheatLeave(){
+  const ch=S.cheat;if(!ch)return;
+  const boss=ch.boss,levelId=ch.levelId;
+  S.cheat=null;save();
+  if(boss)startBoss(+levelId);else startLevel(levelId);
+}
+
 function shopPrice(it){
   const disc=shopDisc();
   return Math.max(1,Math.round(it.price*(1-disc)));
@@ -708,7 +859,7 @@ function reroll(){
   const sh=S.shop;if(!sh)return;
   const cost=Math.round(sh.rerollCost*(1-shopDisc()));
   if(S.gold<cost){alert('金幣不夠');return}
-  S.gold-=cost;sh.offers=rollOffers(3+sumOwned('shopSlots'));sh.rerollCost+=1;save();render();
+  S.gold-=cost;sh.offers=rollOffers(3+sumOwned('shopSlots'), currentCh());sh.rerollCost+=1;save();render();
 }
 function sellItem(k){
   if(!S.items[k])return;
@@ -756,6 +907,12 @@ function importBank(text){
 
 /* ================= 交互 ================= */
 document.addEventListener('click',e=>{
+  // 標題連點五下 → 隱藏入口（累計計數，觸發後歸零）
+  if(screen==='menu'&&e.target.closest('.logo')){
+    logoTaps++;
+    if(logoTaps>=5){logoTaps=0;openCheatLogin();}
+    return;
+  }
   const el=e.target.closest('[data-act]');if(!el)return;
   const act=el.dataset.act;
   if(act==='map'){screen='map';render()}
@@ -794,12 +951,18 @@ document.addEventListener('click',e=>{
   else if(act==='mock-submit'){if(confirm('確定交卷？'))mockSubmit()}
   else if(act==='import-text'){importBank(document.getElementById('importbox').value)}
   else if(act==='import-file'){document.getElementById('filein').click()}
+  else if(act==='cheat-login'){tryCheatLogin()}
+  else if(act==='cheat-jump'){cheatJump(el.dataset.id,el.dataset.boss)}
+  else if(act==='cheat-buy'){cheatBuy(+el.dataset.k)}
+  else if(act==='cheat-reroll'){cheatReroll()}
+  else if(act==='cheat-leave'){cheatLeave()}
 });
 document.getElementById('filein').addEventListener('change',ev=>{
   const f=ev.target.files[0];if(!f)return;
   const r=new FileReader();r.onload=()=>importBank(r.result);r.readAsText(f,'utf-8');
 });
 document.addEventListener('keydown',e=>{
+  if(screen==='cheatlogin'&&e.key==='Enter'){e.preventDefault();tryCheatLogin();return}
   if(screen==='battle'){
     if(B&&B.sel!==null&&(e.key==='Enter'||e.key===' ')){e.preventDefault();nextQ()}
     else if(/^[1-4]$/.test(e.key))answer(+e.key-1);
