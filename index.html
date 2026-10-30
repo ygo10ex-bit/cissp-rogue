@@ -434,6 +434,10 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-acti
 .hook{margin-top:8px;font-size:12.5px;color:var(--gold);border-radius:9px;padding:7px 11px;
   background:linear-gradient(180deg,#3a2a08,#241a05);border:1px solid #6b5312;
   box-shadow:0 0 14px rgba(255,194,51,.12)}
+/* 開發者的話 */
+.devtalk{padding:18px 17px}
+.devtalk p{font-size:13.5px;line-height:1.95;color:#ded4ef;margin:0 0 15px}
+.devtalk p:last-child{margin-bottom:0}
 /* 進化提示 */
 .evoflash{margin-top:9px;padding:9px 13px;border-radius:10px;font-size:13px;font-weight:800;letter-spacing:.3px;
   color:#ffd66b;background:linear-gradient(90deg,rgba(255,194,51,.2),rgba(255,138,61,.12));
@@ -1524,7 +1528,7 @@ function render(){
 
   const map={menu:viewMenu,map:viewMap,intro:viewIntro,battle:viewBattle,fail:viewFail,reward:viewReward,
     shop:viewShop,mock:viewMock,mockresult:viewMockResult,review:viewReview,cards:viewCards,import:viewImport,
-    codex:viewCodex,cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop,codexall:()=>viewCodex(true),bossintro:viewBossIntro,starter:viewStarter};
+    codex:viewCodex,cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop,codexall:()=>viewCodex(true),bossintro:viewBossIntro,starter:viewStarter,devtalk:viewDevTalk};
   $().innerHTML=(map[screen]||viewMenu)()+setBtnHtml()+(S.setOpen?setModalHtml():'');
   const tier=(screen==='battle'&&B)?tierOf(B.combo):0;
   document.body.dataset.tier=(tier&&S.fx>0)?String(tier):'';
@@ -1567,7 +1571,7 @@ function viewMenu(){
   const ns=nextStop();
   const cleared=CHS.filter(c=>c.n<=MAIN&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.19（2026-10-31）</div></div>
+  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.20（2026-10-31）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===MAIN?'on':''}">① 八章關卡全清並擊敗章末 Boss（${cleared}/${MAIN}）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
@@ -1592,7 +1596,24 @@ function viewMenu(){
    <button class="btn ghost" data-act="import">導入題庫</button>
    <button class="btn ghost danger" data-act="reset">重置進度</button>
   </div>
-  <div class="small" style="margin-top:14px">第 1–8 章覆蓋 CISSP 八個領域，第 9 章是官方綜合模擬。後期關卡目標分陡增，光答對不夠，要靠道具構築。</div>`;
+  <div class="small" style="margin-top:14px">第 1–8 章覆蓋 CISSP 八個領域，第 9 章是官方綜合模擬。後期關卡目標分陡增，光答對不夠，要靠道具構築。</div>
+  <div class="row" style="margin-top:16px"><button class="btn small ghost" data-act="devtalk">開發者的話</button></div>`;
+}
+
+function viewDevTalk(){
+  return `<div class="hdr"><div class="logo" style="font-size:24px">開發者的話</div>
+    <div class="tagline">一些沒地方放的碎念</div></div>
+  <div class="card devtalk">
+    <p>這個遊戲是從一句話開始的：把 CISSP 的考題做成小丑牌。</p>
+    <p>原本只想把題庫塞進去就算了，結果它長成 53 關、78 件道具，還有九隻會進化的怪物。</p>
+    <p>最快樂的一次，是連擊跳上第三檔、畫面整個著火的那一下。還有把「籌碼 × 倍率」拆成兩欄顯示的那天——突然間每一件道具都說得通它在幹嘛了。</p>
+    <p>最煩的是目標分。第一版是我自己拍的指數曲線，數字漂亮得要命，然後一測：空手連第一關都打不過。後來寫了模擬器跑十輪取中位數，才知道那條線該怎麼畫。漂亮的數字和好玩的遊戲，通常是兩件事。</p>
+    <p>第二煩的是手機。同一頁我在電腦上看明明沒問題，你截圖上來的永遠是另一個樣子：題目擋住怪物、字太透、按鈕被吃掉、還能左右拖。有一次我改了四遍題卡透明度，最後發現問題根本不在透明度。</p>
+    <p>還有一條規則——「連擊撐到 6 以上、答錯扣兩顆心」——是我自己偷偷加的。你問了一句「這合理嗎」，我嘴上說不合理，其實刪的時候有點捨不得。</p>
+    <p>如果你玩到某一關覺得太難，那大概是對的。模擬器裡一半的玩家都過不去；會挑道具的人會過得比較舒服。</p>
+    <p>最後，這遊戲沒有後端，進度只存在你自己的瀏覽器裡。換瀏覽器、清快取、換手機，進度就沒了。這不是 bug，是沒錢租伺服器。</p>
+  </div>
+  <div class="row"><button class="btn small ghost" data-act="menu">← 返回主菜單</button></div>`;
 }
 
 function viewMap(){
@@ -2309,6 +2330,7 @@ document.addEventListener('click',e=>{
     }
     screen='map';render()}
   else if(act==='starter'){pickStarter(el.dataset.id)}
+  else if(act==='devtalk'){screen='devtalk';render()}
   else if(act==='menu'){screen='menu';render()}
   else if(act==='cards'){screen='cards';render()}
   else if(act==='codex'){screen='codex';render()}
