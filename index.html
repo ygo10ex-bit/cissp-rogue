@@ -242,6 +242,11 @@ textarea{width:100%;height:150px;color:var(--text);border:1px solid var(--line);
 .chip .lk{color:var(--gold);margin-left:2px;font-size:11px;line-height:1;
   text-shadow:0 0 10px rgba(255,194,51,.9);animation:lkPulse 1.6s ease-in-out infinite}
 @keyframes lkPulse{0%,100%{opacity:.55}50%{opacity:1}}
+/* 進化形態：金框 + ★，不吃稀有度配色 */
+.chip.evo{border-color:var(--gold)!important;animation:evoGlow 2.4s ease-in-out infinite!important}
+.chip.evo .cn{color:var(--gold)}
+@keyframes evoGlow{0%,100%{box-shadow:0 0 10px rgba(255,194,51,.35),inset 0 1px 0 rgba(255,255,255,.1)}
+  50%{box-shadow:0 0 22px rgba(255,194,51,.8),inset 0 1px 0 rgba(255,255,255,.1)}}
 .chip.C{border-color:#6b5a95}
 .chip.U{border-color:var(--info);box-shadow:0 0 12px rgba(76,194,255,.25),inset 0 1px 0 rgba(255,255,255,.07)}
 .chip.R{border-color:var(--pur);box-shadow:0 0 14px rgba(180,140,242,.35),inset 0 1px 0 rgba(255,255,255,.07);
@@ -429,6 +434,10 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-acti
 .hook{margin-top:8px;font-size:12.5px;color:var(--gold);border-radius:9px;padding:7px 11px;
   background:linear-gradient(180deg,#3a2a08,#241a05);border:1px solid #6b5312;
   box-shadow:0 0 14px rgba(255,194,51,.12)}
+/* 進化提示 */
+.evoflash{margin-top:9px;padding:9px 13px;border-radius:10px;font-size:13px;font-weight:800;letter-spacing:.3px;
+  color:#ffd66b;background:linear-gradient(90deg,rgba(255,194,51,.2),rgba(255,138,61,.12));
+  border:1px solid rgba(255,194,51,.5);box-shadow:0 0 18px rgba(255,194,51,.28)}
 .retag{font-size:10px;padding:1px 6px;border-radius:20px;border:1px solid var(--rare);color:var(--rare);margin-left:6px}
 .half{font-size:10px;padding:1px 6px;border-radius:20px;background:#4a3a12;color:var(--gold);margin-left:6px}
 /* ===== 道具图鉴 ===== */
@@ -436,6 +445,8 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-acti
 .cx{background:linear-gradient(180deg,#271c46,#191330);border:1px solid var(--line);border-radius:11px;padding:10px 12px;
   box-shadow:0 3px 0 rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05)}
 .cx.lock{opacity:.34;border-style:dashed;background:linear-gradient(180deg,#100a1c,#0a0614)}
+.cx.evo{border-color:var(--gold);background:linear-gradient(180deg,#3a2a12,#241708)}
+.cx.evo .cn{color:var(--gold)}
 .cx .cn{font-size:13.5px;font-weight:800}
 .cx .cr{font-size:10px;padding:1px 6px;border-radius:20px;border:1px solid var(--line);color:var(--dim);margin-left:6px;font-weight:400}
 .cx .cd{font-size:12px;color:#d8e6dc;line-height:1.55;margin-top:5px}
@@ -626,10 +637,56 @@ const ITEMS=[
  {id:'void', name:'事件視界', rarity:'R', price:34, desc:'分數 ×4（乘區），但最大生命 −1', mult:4,maxHp:-1},
  {id:'gamble', name:'俄羅斯輪盤', rarity:'U', price:17, desc:'每題 25% 分數 ×3、25% 分數 ×0', gamble:1},
  {id:'ultimatum', name:'死亡筆記', rarity:'U', price:17, desc:'最後一題分數 ×3；那題答錯，本關直接失敗', lastAllIn:3},
- {id:'whetstone', name:'磨刀石', rarity:'R', price:30, desc:'每答對 1 題，分數乘區 +0.04（上限 +4）', grow:'whetstone'},
- {id:'ledger2', name:'複利筆記', rarity:'U', price:16, desc:'每通過 1 關，基礎分 +3（上限 +60）', grow:'ledger2'},
- {id:'critcore', name:'暴擊核心', rarity:'R', price:30, desc:'每次暴擊，暴擊倍率 +0.08（上限 +3）', grow:'critcore'},
- {id:'streakcore', name:'連勝核心', rarity:'R', price:32, desc:'連擊每跨一檔，分數乘區 +0.5（上限 +5）', grow:'streakcore'},
+ /* ===== 進化鏈：每條 3 階，疊滿 growCap 自動進化，成長清零、換下一階 =====
+    growType：mult/increase 走 calcScore；shield 走開局護盾；gold 走過關金幣 */
+ {id:'whetstone', name:'磨刀石', rarity:'R', price:30, chain:'whetstone', stage:1, growType:'mult', growPer:0.2, growCap:20, evolveTo:'whet2',
+  desc:'每答對 1 題，分數乘區 +0.2（滿 20 層進化）'},
+ {id:'whet2', name:'斷鋼石', rarity:'R', price:45, chain:'whetstone', stage:2, growType:'mult', growPer:0.25, growCap:30, evolveTo:'whet3', evo:1,
+  desc:'每答對 1 題，分數乘區 +0.25（滿 30 層進化）'},
+ {id:'whet3', name:'屠龍石', rarity:'R', price:60, chain:'whetstone', stage:3, growType:'mult', growPer:0.3, growCap:40, evo:1,
+  desc:'每答對 1 題，分數乘區 +0.3（滿 40 層，最終形態）'},
+ {id:'ledger2', name:'複利筆記', rarity:'U', price:16, chain:'ledger2', stage:1, growType:'flat', growPer:3, growCap:20, evolveTo:'ledger3',
+  desc:'每通過 1 關，基礎分 +3（滿 20 層進化）'},
+ {id:'ledger3', name:'總帳冊', rarity:'U', price:24, chain:'ledger2', stage:2, growType:'flat', growPer:4, growCap:30, evolveTo:'ledger4', evo:1,
+  desc:'每通過 1 關，基礎分 +4（滿 30 層進化）'},
+ {id:'ledger4', name:'金庫', rarity:'U', price:36, chain:'ledger2', stage:3, growType:'flat', growPer:5, growCap:40, evo:1,
+  desc:'每通過 1 關，基礎分 +5（滿 40 層，最終形態）'},
+ {id:'critcore', name:'暴擊核心', rarity:'R', price:30, chain:'critcore', stage:1, growType:'crit', growPer:0.2, growCap:15, evolveTo:'crit2',
+  desc:'每次暴擊，暴擊倍率 +0.2（滿 15 層進化）'},
+ {id:'crit2', name:'臨界核心', rarity:'R', price:45, chain:'critcore', stage:2, growType:'crit', growPer:0.25, growCap:25, evolveTo:'crit3', evo:1,
+  desc:'每次暴擊，暴擊倍率 +0.25（滿 25 層進化）'},
+ {id:'crit3', name:'奇點核心', rarity:'R', price:60, chain:'critcore', stage:3, growType:'crit', growPer:0.3, growCap:35, evo:1,
+  desc:'每次暴擊，暴擊倍率 +0.3（滿 35 層，最終形態）'},
+ {id:'streakcore', name:'連勝核心', rarity:'R', price:32, chain:'streakcore', stage:1, growType:'mult', growPer:0.5, growCap:10, evolveTo:'streak2',
+  desc:'連擊每跨一檔，分數乘區 +0.5（滿 10 層進化）'},
+ {id:'streak2', name:'霸者核心', rarity:'R', price:48, chain:'streakcore', stage:2, growType:'mult', growPer:0.7, growCap:15, evolveTo:'streak3', evo:1,
+  desc:'連擊每跨一檔，分數乘區 +0.7（滿 15 層進化）'},
+ {id:'streak3', name:'無敗核心', rarity:'R', price:64, chain:'streakcore', stage:3, growType:'mult', growPer:1, growCap:20, evo:1,
+  desc:'連擊每跨一檔，分數乘區 +1（滿 20 層，最終形態）'},
+ {id:'blood1', name:'不滅之血', rarity:'C', price:12, chain:'blood1', stage:1, growType:'shield', growPer:1, growCap:3, evolveTo:'blood2',
+  desc:'滿血通過 1 關 +1 層，每層開局多 1 護盾（滿 3 層進化）'},
+ {id:'blood2', name:'鐵血之證', rarity:'C', price:18, chain:'blood1', stage:2, growType:'shield', growPer:1, growCap:5, evolveTo:'blood3', evo:1,
+  desc:'滿血通過 1 關 +1 層，每層開局多 1 護盾（滿 5 層進化）'},
+ {id:'blood3', name:'不死鳥', rarity:'C', price:26, chain:'blood1', stage:3, growType:'shield', growPer:1, growCap:8, evo:1,
+  desc:'滿血通過 1 關 +1 層，每層開局多 1 護盾（滿 8 層，最終形態）'},
+ {id:'pot', name:'存錢罐', rarity:'C', price:10, chain:'pot', stage:1, growType:'gold', growPer:1, growCap:6, evolveTo:'pot2',
+  desc:'過關時金幣 ≥40 加 1 層，每層過關多 1 金幣（滿 6 層進化）'},
+ {id:'pot2', name:'金窖', rarity:'C', price:15, chain:'pot', stage:2, growType:'gold', growPer:2, growCap:12, evolveTo:'pot3', evo:1,
+  desc:'過關時金幣 ≥40 加 1 層，每層過關多 2 金幣（滿 12 層進化）'},
+ {id:'pot3', name:'中央銀行', rarity:'C', price:22, chain:'pot', stage:3, growType:'gold', growPer:2, growCap:20, evo:1,
+  desc:'過關時金幣 ≥40 加 1 層，每層過關多 2 金幣（滿 20 層，最終形態）'},
+ {id:'second', name:'秒針', rarity:'U', price:18, chain:'second', stage:1, growType:'flat', growPer:4, growCap:10, evolveTo:'second2',
+  desc:'5 秒內答對 +1 層，每層基礎分 +4（滿 10 層進化）'},
+ {id:'second2', name:'沙漏', rarity:'U', price:27, chain:'second', stage:2, growType:'flat', growPer:6, growCap:20, evolveTo:'second3', evo:1,
+  desc:'5 秒內答對 +1 層，每層基礎分 +6（滿 20 層進化）'},
+ {id:'second3', name:'時間之軸', rarity:'U', price:40, chain:'second', stage:3, growType:'flat', growPer:9, growCap:30, evo:1,
+  desc:'5 秒內答對 +1 層，每層基礎分 +9（滿 30 層，最終形態）'},
+ {id:'revenge', name:'復仇筆記', rarity:'U', price:17, chain:'revenge', stage:1, growType:'flat', growPer:6, growCap:8, evolveTo:'revenge2',
+  desc:'答對 1 道回流題 +1 層，每層基礎分 +6（滿 8 層進化）'},
+ {id:'revenge2', name:'記恨之書', rarity:'U', price:25, chain:'revenge', stage:2, growType:'flat', growPer:9, growCap:16, evolveTo:'revenge3', evo:1,
+  desc:'答對 1 道回流題 +1 層，每層基礎分 +9（滿 16 層進化）'},
+ {id:'revenge3', name:'因果律', rarity:'U', price:38, chain:'revenge', stage:3, growType:'flat', growPer:13, growCap:24, evo:1,
+  desc:'答對 1 道回流題 +1 層，每層基礎分 +13（滿 24 層，最終形態）'},
  {id:'pact', name:'深潛者的契約', rarity:'R', price:36, desc:'分數 ×5（乘區），但每關開始扣 1 生命', mult:5,startHpCost:1},
  {id:'cannon', name:'玻璃大砲', rarity:'R', price:32, desc:'分數 ×6（乘區），但暴擊率歸零', mult:6,nocrit:1},
  {id:'wealth', name:'財富自由', rarity:'R', price:34, desc:'每 25 金幣，分數乘區 +0.1', wealthMult:25},
@@ -657,7 +714,11 @@ const ITEM_EMOJI={
  coin:'🪙',amulet:'🧿',belt:'🥋',piggy:'🐷',ledger:'📒',armor:'🦺',refbook:'📕',starter:'🚩',
  accel:'🏎',member:'🆔',wholesale:'📦',metronome:'🎵',repeater:'🔁',dice:'🎲',skipper:'⏭',
  binder:'📁',triple:'🔗',coupon:'🎟',pension:'👛',clutch:'🔄',comeback:'📈',allin:'💥',
- blood:'🩸',island:'🏝',gamble:'🎰',ultimatum:'⚠','0x1028':'🌀',overdraft:'💳',whetstone:'🪨',ledger2:'📊',critcore:'💥',streakcore:'🔥',pact:'🐙',cannon:'💎',wealth:'🤑',snake:'🐍',combobank:'🏧',bank:'🏦'
+ blood:'🩸',island:'🏝',gamble:'🎰',ultimatum:'⚠','0x1028':'🌀',overdraft:'💳',whetstone:'🪨',ledger2:'📊',critcore:'💥',streakcore:'🔥',pact:'🐙',cannon:'💎',wealth:'🤑',snake:'🐍',combobank:'🏧',bank:'🏦',
+ whet2:'⚔️',whet3:'🗡️',ledger3:'📚',ledger4:'🏛️',crit2:'🌩️',crit3:'🌌',
+ streak2:'👑',streak3:'♾️',blood1:'🫀',blood2:'🛡️',blood3:'🐦',
+ pot:'🏺',pot2:'🎁',pot3:'🏦',second:'🕐',second2:'⏳',second3:'🕰️',
+ revenge:'🧾',revenge2:'📜',revenge3:'⛓️'
 };
 function itemIcon(id){
   return ITEM_IMG[id] ? `<i class="ic sv"><img src="${ITEM_IMG[id]}" alt=""></i>` : `<i class="ic">${ITEM_EMOJI[id]||'❓'}</i>`;
@@ -1085,7 +1146,7 @@ if(S.fx===undefined)S.fx=1;
 if(S.snd===undefined)S.snd=true;
 if(S.mix===undefined)S.mix=false;
 /* ===== 道具圖鑑：記錄「曾經擁有過」的道具 ===== */
-const CODEX=()=>ITEMS.filter(i=>i.rarity!=='X');
+const CODEX=()=>ITEMS.filter(i=>i.rarity!=='X'&&!i.evo);
 const codexGot=()=>CODEX().filter(i=>S.dex&&S.dex[i.id]).length;
 const codexDone=()=>codexGot()>=CODEX().length;
 function syncDex(){
@@ -1191,7 +1252,7 @@ function rollOffers(n, ch){
   const out=[];const used=new Set(S.items);
   for(let k=0;k<n;k++){
     const w=rarityW(ch||1);
-    const pool=ITEMS.filter(i=>!used.has(i.id)&&(i.rarity!=='X'||eggOn()));
+    const pool=ITEMS.filter(i=>!used.has(i.id)&&!i.evo&&(i.rarity!=='X'||eggOn()));
     if(!pool.length)break;
     const tot=pool.reduce((a,i)=>a+w[i.rarity],0);let r=Math.random()*tot;let sel=pool[0];
     for(const it of pool){r-=w[it.rarity];if(r<=0){sel=it;break}}
@@ -1205,13 +1266,45 @@ function currentCh(){
 }
 
 /* ================= 計分 ================= */
+/* ===== 進化鏈：層數 → 效果、疊滿自動進化 ===== */
+function growVal(it){return Math.min(it.growCap,(S.grow||{})[it.chain]||0)}
+function growBonus(type){
+  let v=0;
+  for(const it of owned())if(it.chain&&it.growType===type)v+=growVal(it)*it.growPer;
+  return v;
+}
+function bumpGrow(chain,n){
+  S.grow=S.grow||{};
+  S.grow[chain]=(S.grow[chain]||0)+(n||1);
+  return tryEvolve(chain);
+}
+function tryEvolve(chain){
+  const k=S.items.findIndex(id=>{const it=ITEMS.find(i=>i.id===id);return it&&it.chain===chain&&it.evolveTo});
+  if(k<0)return false;
+  const cur=ITEMS.find(i=>i.id===S.items[k]);
+  if(!cur||(S.grow[chain]||0)<cur.growCap)return false;
+  const nx=ITEMS.find(i=>i.id===cur.evolveTo);
+  if(!nx)return false;
+  S.items[k]=nx.id;
+  S.grow[chain]=0;
+  S.dex=S.dex||{};S.dex[nx.id]=1;
+  if(B)B.evolved=(B.evolved||'')+`★ ${cur.name} → ${nx.name}　`;
+  if(S.fx>0)SFX.evolve();
+  return true;
+}
 function calcScore(idx){
   const G=S.grow||{};
   let flat=10,mult=1,critC=critBase(),critM=critMultOf(),cScale=0;
   if(owned().some(x=>x.nocrit))critC=0;   // 玻璃大砲：不會暴擊
-  flat+=Math.min(60,(G.ledger2||0)*3);
-  mult+=Math.min(4,(G.whetstone||0)*0.04)+Math.min(5,(G.streakcore||0)*0.5);
-  critM+=Math.min(3,(G.critcore||0)*0.08);
+  // 進化鏈：持有該鏈目前形態，才吃它的層數
+  for(const it of owned()){
+    if(!it.chain)continue;
+    const g=growVal(it);
+    if(!g)continue;
+    if(it.growType==='mult')mult+=g*it.growPer;
+    else if(it.growType==='flat')flat+=g*it.growPer;
+    else if(it.growType==='crit')critM+=g*it.growPer;
+  }
   const combo=B.combo;
   for(const it of owned()){
     flat+=it.flat||0;
@@ -1278,8 +1371,8 @@ function itemChips(sell,big){
   if(!S.items.length)return '<span class="small">道具欄空著</span>';
   const lk=linkedIds();
   return S.items.map((id,k)=>{const it=ITEMS.find(i=>i.id===id);if(!it)return '';
-    const gv=(S.grow||{})[it.grow]||0;
-    return `<span class="chip ${it.rarity}${big?' big':''}" title="${esc(it.desc)}">${itemIcon(id)}<b class="cn">${it.name}${gv?`<span class="gi">+${gv}</span>`:''}${lk.has(id)?'<span class="lk" title="與另一件道具聯動">⚡</span>':''}</b>${sell?`<button class="sell" data-act="sell" data-k="${k}">賣</button>`:''}</span>`}).join('');
+    const gt=it.chain?`<span class="gi">${growVal(it)}/${it.growCap}</span>`:'';
+    return `<span class="chip ${it.rarity}${it.evo?' evo':''}${big?' big':''}" title="${esc(it.desc)}">${itemIcon(id)}<b class="cn">${it.evo?'★':''}${it.name}${gt}${lk.has(id)?'<span class="lk" title="與另一件道具聯動">⚡</span>':''}</b>${sell?`<button class="sell" data-act="sell" data-k="${k}">賣</button>`:''}</span>`}).join('');
 }
 function itemBar(big){return `<div class="items${big?' big':''}">${itemChips(false,big)}</div>`}
 function termsIn(q){
@@ -1334,6 +1427,10 @@ const SFX={
   correct(){tone(880,.06,'square',.045);tone(1320,.09,'square',.04,null,.055)},
   wrong(){tone(200,.18,'sawtooth',.05,90)},
   crit(){tone(1047,.06,'square',.05);tone(1568,.06,'square',.05,null,.06);tone(2093,.12,'triangle',.045,null,.12)},
+  evolve(){
+    [392,523,659,784,1047,1319].forEach((f,i)=>tone(f,.09,'triangle',.05,null,i*0.06));
+    tone(80,.35,'sawtooth',.06,55,.36);
+  },
   tier(t){
     if(t>=9){SFX.jackpot();return}
     const base=t>=6?784:587;
@@ -1469,7 +1566,7 @@ function viewMenu(){
   const ns=nextStop();
   const cleared=CHS.filter(c=>c.n<=MAIN&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.16（2026-10-31）</div></div>
+  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.17（2026-10-31）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===MAIN?'on':''}">① 八章關卡全清並擊敗章末 Boss（${cleared}/${MAIN}）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
@@ -1591,6 +1688,7 @@ function viewBattle(){
   </div>
   ${revealed?`<div class="fb ${B.sel===q.ans?'ok':'no'}"><div class="t ${B.sel===q.ans?'ok':'no'}">${timeout?'⏱ 超時':B.sel===q.ans?'✓ 正確':'✗ 錯誤'}　正確答案：${'ABCD'[q.ans]}${B.sel===q.ans&&B.chips?`<span class="calc">籌碼 ${fmtNum(B.chips)} × 倍率 ${fmtMult(B.mult)} = ${fmtNum(B.gain)}</span>`:(B.gain?`　+${B.gain} 分`:'')}${B.crit?'<span class="crit">暴擊！</span>':''}${q.__re?'<span class="half">半分</span>':''}${!timeout&&B.sel!==q.ans&&B.dmg>0?`　−${B.dmg} 生命${B.dmg>1?'（連擊中斷，代價加倍）':''}`:''}</div>${esc(q.exp)}</div>
    ${B.note?`<div class="hook">${B.note}</div>`:''}
+   ${B.evolved?`<div class="evoflash">${B.evolved}</div>`:''}
    <div class="row"><button class="btn primary small" data-act="next">繼續 →</button></div>`:''}
   <button class="dictbtn" data-act="dict">查詞<br><span class="gold">💰${dictPrice()}</span></button>
   ${B.dictOpen?`<div class="modal"><div class="mbox"><div class="mt">縮寫解釋（本關第 ${B.dictUses} 次查詞）</div>
@@ -1777,12 +1875,13 @@ function viewCodex(showAll){
   for(const r of ['C','U','R','X']){
     const list=ITEMS.filter(i=>i.rarity===r);
     if(!list.length)continue;
-    const cnt=showAll?`${list.length}/${list.length}`:(r==='X'?(S.egg?'已開啟':'未解鎖'):`${list.filter(i=>S.dex&&S.dex[i.id]).length}/${list.length}`);
+    const base=list.filter(i=>!i.evo);   // 進化形態不計入收集分母
+    const cnt=showAll?`${list.length}/${list.length}`:(r==='X'?(S.egg?'已開啟':'未解鎖'):`${base.filter(i=>S.dex&&S.dex[i.id]).length}/${base.length}`);
     h+=`<div class="chap"><h3>${RARITY[r]}</h3><div class="w">${cnt}</div></div><div class="codex">`;
     for(const it of list){
       const has=showAll?true:(r==='X'?S.egg:!!(S.dex&&S.dex[it.id]));
-      h+=`<div class="cx ${it.rarity} ${has?'':'lock'}">
-        <div class="cn">${has?esc(it.name):'???'}<span class="cr">${RARITY[it.rarity]}</span></div>
+      h+=`<div class="cx ${it.rarity}${it.evo?' evo':''} ${has?'':'lock'}">
+        <div class="cn">${it.evo&&has?'★':''}${has?esc(it.name):'???'}<span class="cr">${it.evo?'進化':RARITY[it.rarity]}</span></div>
         <div class="cd">${has?esc(it.desc):(r==='X'?'集齊全部道具後解鎖':'尚未獲得')}</div>
         ${has?`<div class="cp">💰${it.price}</div>`:''}</div>`;
     }
@@ -1833,8 +1932,8 @@ function startLevel(id){
   if(od){S.gold+=od;save()} // 透支卡：先預支，失敗再賠
   const hpCost=sumOwned('startHpCost');
   B={mode:'level',currentLevel:id,qs:pick(pool,6,mixWeight(id)),i:0,hp:Math.max(1,myMax-hpCost),maxhp:myMax,target:l.target,
-     score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],hints:sumOwned('hints'),shieldLeft:sumOwned('shield'),lvMult:l.mult||1,
-     skips:sumOwned('skips'),dictUses:0,dictThis:[],snake:0,
+     score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],hints:sumOwned('hints'),shieldLeft:sumOwned('shield')+Math.round(growBonus('shield')),lvMult:l.mult||1,
+     skips:sumOwned('skips'),dictUses:0,dictThis:[],snake:0,qStart:Date.now(),
      reviveLeft:owned().some(x=>x.revive)?1:0,gain:0,crit:false,
      mods:[],reflow:true,reflowed:new Set(),keepLeft:sumOwned('keepCombo'),flash:0,note:'',
      overdraft:od?10:0};
@@ -1852,7 +1951,7 @@ function startBoss(ch){
   B={mode:'boss',currentLevel:levelsOf(ch).slice(-1)[0].id,ch,qs:pick(pool,20,mixWeightCh(ch)),i:0,hp:Math.max(1,myMax-hpCost),maxhp:myMax,
      target:c.bossTarget,lvMult:(levelsOf(ch).slice(-1)[0].mult)||1,score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],
      hints:amnesia?0:sumOwned('hints'),
-     shieldLeft:sumOwned('shield'),skips:sumOwned('skips'),dictUses:0,dictThis:[],snake:0,
+     shieldLeft:sumOwned('shield')+Math.round(growBonus('shield')),skips:sumOwned('skips'),dictUses:0,dictThis:[],snake:0,qStart:Date.now(),
      reviveLeft:owned().some(x=>x.revive)?1:0,gain:0,crit:false,
      mods,reflow:false,reflowed:new Set(),keepLeft:sumOwned('keepCombo'),flash:0,note:'',
      overdraft:od?10:0,
@@ -1873,11 +1972,14 @@ function answer(idx,timedOut){
     B.correct++;S.tot.c++;B.combo++;
     const r=calcScore(B.i);B.gain=r.v;B.crit=r.crit;B.chips=r.chips;B.mult=r.mult;B.score+=r.v;
     if(S.fx>0)(r.crit?SFX.crit:SFX.correct)();
-    // 疊層成長道具
+    // 進化鏈：答對 / 暴擊 / 秒答 / 復仇 各自累積層數
+    const fast=B.qStart&&(Date.now()-B.qStart)<5000;
     for(const it of owned()){
-      if(!it.grow)continue;
-      if(it.grow==='critcore'){ if(r.crit)S.grow.critcore=(S.grow.critcore||0)+1; }
-      else if(it.grow==='whetstone')S.grow.whetstone=(S.grow.whetstone||0)+1;
+      if(!it.chain)continue;
+      if(it.chain==='whetstone')bumpGrow('whetstone',1);
+      else if(it.chain==='critcore'&&r.crit)bumpGrow('critcore',1);
+      else if(it.chain==='second'&&fast)bumpGrow('second',1);
+      else if(it.chain==='revenge'&&q.__re)bumpGrow('revenge',1);
     }
     fxFlash(r.crit?'crit':'ok');
     S.gold+=sumOwned('goldPerCorrect');
@@ -1899,7 +2001,7 @@ function answer(idx,timedOut){
     }
     const after=tierOf(B.combo);
     if(after>before){B.flash=after;if(S.fx>0)SFX.tier(after);if(after>=9)pachi();
-      if(owned().some(x=>x.grow==='streakcore'))S.grow.streakcore=(S.grow.streakcore||0)+1;} // 跨過連擊檔位
+      if(owned().some(x=>x.chain==='streakcore'))bumpGrow('streakcore',1);} // 跨過連擊檔位
     // 貪食蛇：答對一題就長一截，下一題起算
     if(sumOwned('snake')){
       B.snake=(B.snake||0)+0.25;
@@ -1958,18 +2060,18 @@ function useHint(){
 }
 function skipQ(){
   if(!B||B.sel!==null||B.skips<=0)return;
-  B.skips--;B.i++;B.sel=null;B.gain=0;B.note='';
-  B.qDeadline=hasMod('pressure')?Date.now()+45000:0;
+  B.skips--;B.i++;B.sel=null;B.gain=0;B.note='';B.evolved='';
+  B.qDeadline=hasMod('pressure')?Date.now()+45000:0;B.qStart=Date.now();
   if(B.i>=B.qs.length){finishBattle();return}
   render();
 }
 function nextQ(){
   if(!B||B.sel===null)return;
-  B.i++;B.sel=null;B.gain=0;B.note='';
+  B.i++;B.sel=null;B.gain=0;B.note='';B.evolved='';
   if(B.hp<=0||B.i>=B.qs.length){
     if(B.mode==='review'){B=null;screen='review';render();return}
     finishBattle();return}
-  B.qDeadline=hasMod('pressure')?Date.now()+45000:0;
+  B.qDeadline=hasMod('pressure')?Date.now()+45000:0;B.qStart=Date.now();
   render();
 }
 function finishBattle(){
@@ -1988,10 +2090,14 @@ function finishBattle(){
     B.result={score:B.score,target:B.target,correct:B.correct,total,refund,penalty};
     B.hp=Math.max(0,B.hp);save();screen='fail';render();return;
   }
-  if(owned().some(x=>x.grow==='ledger2'))S.grow.ledger2=(S.grow.ledger2||0)+1;
   const ratio=B.score/B.target;
   let goldGain=4+B.hp*2+(ratio>=1.3?2:0)+sumOwned('endGold')+B.hp*sumOwned('hpToGold');
   for(const it of owned())if(it.interest)goldGain+=Math.floor(S.gold/it.interest); // 利息帳戶
+  goldGain+=Math.round(growBonus('gold'));                                     // 進化鏈：存錢罐
+  // 進化鏈：過關類成長（結算完再加，避免進化後清零吃掉本關收益）
+  if(owned().some(x=>x.chain==='ledger2'))bumpGrow('ledger2',1);
+  if(B.hp>=B.maxhp&&owned().some(x=>x.chain==='blood1'))bumpGrow('blood1',1);
+  if(S.gold>=40&&owned().some(x=>x.chain==='pot'))bumpGrow('pot',1);
   if(B.mode==='boss')goldGain+=8;
   S.gold+=goldGain;
   if(B.mode==='level'){
@@ -2095,6 +2201,7 @@ function reroll(){
 function sellItem(k){
   if(!S.items[k])return;
   const it=ITEMS.find(i=>i.id===S.items[k]);
+  if(it&&it.evo){alert('進化後的道具不能賣。');return}   // 進化形態鎖定
   const back=Math.max(1,Math.floor(it.price/2));
   S.items.splice(k,1);S.gold+=back;save();render();
 }
@@ -2127,6 +2234,7 @@ function resetAll(){
   document.body.classList.remove('pachi');
   document.body.dataset.tier='';
   document.body.classList.remove('fx-off');
+  document.body.classList.remove('locked');
   S=fresh();S.setOpen=false;
   save();screen='menu';render();
 }
