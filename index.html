@@ -293,12 +293,12 @@ textarea{width:100%;height:150px;color:var(--text);border:1px solid var(--line);
     var(--tc,#0b0715);
   transition:background 1.1s ease,filter .6s ease;animation:meshBreath 14s ease-in-out infinite}
 @keyframes meshBreath{0%,100%{filter:saturate(1) brightness(1)}50%{filter:saturate(1.12) brightness(1.05)}}
-#stage.boss{filter:saturate(1.3) brightness(1.1)}
+#stage.boss{filter:saturate(1.55) brightness(1.18) contrast(1.05)}
 /* 细网格：科技感基底 */
 .bgart{position:absolute;inset:0;background-size:cover;background-position:center;
-  background-repeat:no-repeat;opacity:.52;transition:opacity .9s ease;filter:saturate(.95)}
+  background-repeat:no-repeat;opacity:.62;transition:opacity .9s ease;filter:saturate(1.4) brightness(1.1) contrast(1.04)}
 .bgart::after{content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 72% 62% at 50% 46%,transparent 26%,rgba(6,4,14,.62) 100%)}
+  background:radial-gradient(ellipse 78% 66% at 50% 46%,transparent 34%,rgba(6,4,14,.44) 100%)}
 body.fx-off .bgart{display:none}
 .ledgrid{position:absolute;inset:-5%;
   background-image:
@@ -504,7 +504,7 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-acti
   body[data-scr="battle"] .hud .row{margin:3px 0 0;gap:4px;flex-wrap:wrap}
   body[data-scr="battle"] .hud .row .btn{padding:4px 8px;font-size:10.5px;border-radius:7px}
   /* 戰鬥中把背景怪物提亮一點，讓它在題卡下方清楚可見 */
-  body[data-scr="battle"] .bgart{opacity:1;background-position:left bottom;background-size:auto 100%;filter:brightness(1.12) saturate(1.05)}
+  body[data-scr="battle"] .bgart{opacity:1;background-position:left bottom;background-size:auto 100%;filter:saturate(2) brightness(1.2) contrast(1.14) hue-rotate(-8deg)}
   /* 齒輪移到右上，左上整塊讓給資訊 */
   body[data-scr="battle"] .setbtn,body[data-scr="mock"] .setbtn{left:auto;right:8px;top:8px}
   .items.big{gap:6px;margin:8px 0 4px}
@@ -1397,7 +1397,7 @@ function viewMenu(){
   const ns=nextStop();
   const cleared=CHS.filter(c=>c.n<=MAIN&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.11（2026-10-31）</div></div>
+  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.12（2026-10-31）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===MAIN?'on':''}">① 八章關卡全清並擊敗章末 Boss（${cleared}/${MAIN}）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
