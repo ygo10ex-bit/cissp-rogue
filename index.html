@@ -459,22 +459,26 @@ html,body{overflow-x:hidden}
   body[data-scr="battle"] .tmeta b{font-size:13px}
   /* 題卡與選項半透明，讓背後的怪物透出來 */
   body[data-scr="battle"] .qcard,body[data-scr="mock"] .qcard{
-    background:linear-gradient(180deg,rgba(30,21,56,.74),rgba(21,16,40,.82));
+    background:linear-gradient(180deg,rgba(30,21,56,.62),rgba(21,16,40,.72));
     backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);
     padding:16px 14px;display:flex;flex-direction:column}
   body[data-scr="battle"] .qcard .qtag,body[data-scr="battle"] .qcard .qtext{flex:none}
   body[data-scr="battle"] .opt:not(.correct):not(.wrong){
-    background:linear-gradient(180deg,rgba(42,31,77,.82),rgba(29,21,56,.88))}
-  body[data-scr="battle"] .opt{font-size:15px;padding:14px 13px;margin:8px 0;flex:1 1 auto;min-height:56px;max-height:104px;display:flex;align-items:center}
+    background:linear-gradient(180deg,rgba(42,31,77,.72),rgba(29,21,56,.8))}
+  body[data-scr="battle"] .opt{font-size:15px;padding:14px 13px;margin:8px 0;flex:0 0 auto;min-height:54px;display:flex;align-items:center}
   body[data-scr="battle"] .qtext{font-size:16.5px;line-height:1.6}
   /* 一屏頁面：不讓使用者上下左右拖動；只有圖鑑、地圖這類長頁面才滾 */
   body[data-scr="battle"] #app,body[data-scr="mock"] #app{padding-bottom:12px}
   body.locked,body.locked #app{overflow:hidden;overscroll-behavior:none}
   html:has(body.locked){overflow:hidden;overscroll-behavior:none}
   body.locked #app{height:100vh;height:100dvh;display:flex;flex-direction:column;padding:10px 10px 12px}
-  body.locked #app>.qcard{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  body.locked #app>.qcard{flex:0 0 auto;max-height:calc(100vh - 268px);max-height:calc(100dvh - 268px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+  /* 題卡下方整條留給怪物：按鈕貼底，中間的空白就是怪物區 */
+  body.locked #app>.row{margin-top:auto}
   body.locked #app>.bbar,body.locked #app>.tbar,body.locked #app>.tmeta,
   body.locked #app>.items,body.locked #app>.mods,body.locked #app>.row{flex:0 0 auto}
+  /* 戰鬥中把背景怪物提亮一點，讓它在題卡下方清楚可見 */
+  body[data-scr="battle"] .bgart{opacity:1;background-position:left bottom;background-size:auto 100%;filter:brightness(1.12) saturate(1.05)}
   /* 齒輪移到右上，左上整塊讓給資訊 */
   body[data-scr="battle"] .setbtn,body[data-scr="mock"] .setbtn{left:auto;right:8px;top:8px}
   .items.big{gap:6px;margin:8px 0 4px}
