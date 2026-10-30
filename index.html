@@ -1293,7 +1293,7 @@ function render(){
 
   const map={menu:viewMenu,map:viewMap,intro:viewIntro,battle:viewBattle,fail:viewFail,reward:viewReward,
     shop:viewShop,mock:viewMock,mockresult:viewMockResult,review:viewReview,cards:viewCards,import:viewImport,
-    codex:viewCodex,cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop};
+    codex:viewCodex,cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop,codexall:()=>viewCodex(true)};
   $().innerHTML=(map[screen]||viewMenu)()+setBtnHtml()+(S.setOpen?setModalHtml():'');
   const tier=(screen==='battle'&&B)?tierOf(B.combo):0;
   document.body.dataset.tier=(tier&&S.fx>0)?String(tier):'';
@@ -1516,7 +1516,8 @@ function viewCheat(){
     <div class="tagline">選關跳轉 · 發放對應金幣 · 離開商店後直接開戰</div></div>
   <div class="panel"><div class="small">目前金幣 💰${S.gold} · 道具 ${S.items.length}/${SLOTS}。<br>
   跳關只發金幣、不修改星數與通關記錄；作弊商店免費刷新 5 次、最多買 5 件。</div>
-   <div class="row"><button class="btn small ghost" data-act="menu">返回主菜單</button></div></div>`;
+   <div class="row"><button class="btn small" data-act="codex-all">📖 道具圖鑑（全部 ${ITEMS.length} 件）</button>
+     <button class="btn small ghost" data-act="menu">返回主菜單</button></div></div>`;
   for(const c of CHS){
     h+=`<div class="chap"><h3>${c.name}</h3><div class="w">Boss 目標 ${fmtNum(c.bossTarget)}</div></div>`;
     for(const l of levelsOf(c.n)){
@@ -1614,20 +1615,21 @@ function viewCards(){
     ${Object.entries(S.glossary).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<div class="mrow"><b>${t}</b><span>${esc(DICT[t]||'（未收錄）')}　<span class="small">查過 ${n} 次</span></span></div>`).join('')}</div>`:''}
   <div class="row"><button class="btn small ghost" data-act="menu">← 返回主菜單</button></div>`;
 }
-function viewCodex(){
+function viewCodex(showAll){
   const total=CODEX().length, got=codexGot();
   let h=`<div class="hdr"><div class="logo" style="font-size:22px">道具圖鑑</div>
-    <div class="tagline">已收集 ${got} / ${total}${S.egg?' · 彩蛋已開啟':' · 集齊全部後開啟彩蛋'}</div></div>
-  <div class="tbar"><div class="tfill" style="width:${Math.round(got/total*100)}%"></div></div>
+    <div class="tagline">${showAll?`作弊模式 · 全部 ${ITEMS.length} 件直接顯示`:`已收集 ${got} / ${total}${S.egg?' · 彩蛋已開啟':' · 集齊全部後開啟彩蛋'}`}</div></div>`;
+  h+=showAll
+    ?`<div class="small">完整圖鑑：沒獲得的也直接顯示真名與效果，方便查閱。下面的收集進度仍照遊戲內真實狀態計算（目前 ${got}/${total}）。</div>`
+    :`<div class="tbar"><div class="tfill" style="width:${Math.round(got/total*100)}%"></div></div>
   <div class="small">擁有過一次就會記錄下來，賣掉不影響收集進度。</div>`;
   for(const r of ['C','U','R','X']){
     const list=ITEMS.filter(i=>i.rarity===r);
     if(!list.length)continue;
-    const unlocked=r!=='X'||S.egg;
-    const cnt=r==='X'?(S.egg?'已開啟':'未解鎖'):`${list.filter(i=>S.dex&&S.dex[i.id]).length}/${list.length}`;
+    const cnt=showAll?`${list.length}/${list.length}`:(r==='X'?(S.egg?'已開啟':'未解鎖'):`${list.filter(i=>S.dex&&S.dex[i.id]).length}/${list.length}`);
     h+=`<div class="chap"><h3>${RARITY[r]}</h3><div class="w">${cnt}</div></div><div class="codex">`;
     for(const it of list){
-      const has=r==='X'?S.egg:!!(S.dex&&S.dex[it.id]);
+      const has=showAll?true:(r==='X'?S.egg:!!(S.dex&&S.dex[it.id]));
       h+=`<div class="cx ${it.rarity} ${has?'':'lock'}">
         <div class="cn">${has?esc(it.name):'???'}<span class="cr">${RARITY[it.rarity]}</span></div>
         <div class="cd">${has?esc(it.desc):(r==='X'?'集齊全部道具後解鎖':'尚未獲得')}</div>
@@ -1635,13 +1637,17 @@ function viewCodex(){
     }
     h+=`</div>`;
   }
-  if(S.egg){
+  if(showAll){
+    // 作弊模式：不顯示彩蛋說明
+  }else if(S.egg){
     h+=`<div class="card eggbox"><h4>彩蛋已開啟</h4>
       <div class="small">彩蛋道具已進入商店與過關獎勵的抽取池（權重比傳說更低）。它不會出現在圖鑑的收集進度裡——抽不到是正常的。</div></div>`;
   }else{
     h+=`<div class="card"><h4>彩蛋</h4><div class="small">集齊 ${total} 件道具後，商店與獎勵會開始出現一件圖鑑上沒有的東西。</div></div>`;
   }
-  return h+`<div class="row"><button class="btn small ghost" data-act="menu">← 返回主菜單</button></div>`;
+  return h+(showAll
+    ?`<div class="row"><button class="btn small ghost" data-act="cheat">← 回作弊模式</button></div>`
+    :`<div class="row"><button class="btn small ghost" data-act="menu">← 返回主菜單</button></div>`);
 }
 function viewImport(){
   return `<div class="hdr"><div class="logo" style="font-size:22px">導入題庫</div><div class="tagline">把官方題庫轉成 JSON 後粘進來</div></div>
@@ -2031,6 +2037,8 @@ document.addEventListener('click',e=>{
   else if(act==='mock-submit'){if(confirm('確定交卷？'))mockSubmit()}
   else if(act==='import-text'){importBank(document.getElementById('importbox').value)}
   else if(act==='import-file'){document.getElementById('filein').click()}
+  else if(act==='codex-all'){screen='codexall';render()}
+  else if(act==='cheat'){screen='cheat';render()}
   else if(act==='cheat-login'){tryCheatLogin()}
   else if(act==='cheat-jump'){cheatJump(el.dataset.id,el.dataset.boss)}
   else if(act==='cheat-buy'){cheatBuy(+el.dataset.k)}
