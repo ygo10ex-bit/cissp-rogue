@@ -89,9 +89,11 @@ textarea{width:100%;height:150px;background:#0b0f14;color:var(--text);border:1px
 .chip.C{border-color:#3d4654}
 .chip.U{border-color:#1f6feb}
 .chip.R{border-color:var(--pur)}
+.chip.X{border-color:var(--rare);box-shadow:0 0 10px rgba(240,136,62,.35)}
 .offers{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:10px}
 .offer{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:8px}
 .offer.U{border-color:#1f6feb}.offer.R{border-color:var(--pur)}
+.offer.X{border-color:var(--rare);background:linear-gradient(180deg,#241a10,#161b22);box-shadow:0 0 20px rgba(240,136,62,.18)}
 .offer .rname{font-weight:700;font-size:15px}
 .offer .rar{font-size:10px;padding:1px 7px;border-radius:20px;border:1px solid var(--line);color:var(--dim);margin-left:6px}
 .offer .rdesc{font-size:12.5px;color:#c9d1d9;line-height:1.6;flex:1}
@@ -140,6 +142,19 @@ body[data-tier="9"] #aura{opacity:1;background:radial-gradient(900px 520px at 50
   border-radius:9px;padding:7px 11px}
 .retag{font-size:10px;padding:1px 6px;border-radius:20px;border:1px solid var(--rare);color:var(--rare);margin-left:6px}
 .half{font-size:10px;padding:1px 6px;border-radius:20px;background:#4a3a12;color:var(--gold);margin-left:6px}
+/* ===== 道具圖鑑 ===== */
+.codex{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px;margin:8px 0 4px}
+.cx{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px}
+.cx.lock{opacity:.4;border-style:dashed}
+.cx .cn{font-size:13.5px;font-weight:700}
+.cx .cr{font-size:10px;padding:1px 6px;border-radius:20px;border:1px solid var(--line);color:var(--dim);margin-left:6px;font-weight:400}
+.cx .cd{font-size:12px;color:#c9d1d9;line-height:1.55;margin-top:5px}
+.cx .cp{font-size:11px;color:var(--gold);margin-top:4px}
+.cx.C{border-color:#3d4654}
+.cx.U{border-color:#1f6feb}
+.cx.R{border-color:var(--pur)}
+.cx.X{border-color:var(--rare);background:linear-gradient(180deg,#241a10,#161b22);box-shadow:0 0 18px rgba(240,136,62,.14)}
+.eggbox{border:1px solid var(--rare);background:linear-gradient(120deg,#1e1610,#161b22 60%)}
 @keyframes flashIn{0%{opacity:0}100%{opacity:1}}
 @media(max-width:560px){.grid{grid-template-columns:1fr}.logo{font-size:24px}.dictbtn{width:62px;font-size:11px;right:6px}
   .comboflash{font-size:26px}}
@@ -201,8 +216,12 @@ const ITEMS=[
  {id:'island',   name:'孤島',     rarity:'R',price:9,desc:'分數 ×2.2，但生命上限固定為 2',mult:2.2,maxHpCap:2},
  {id:'gamble',   name:'賭徒硬幣', rarity:'U',price:7,desc:'每題 25% 分數 ×3、25% 分數 ×0，其餘不變',gamble:1},
  {id:'ultimatum',name:'最後通牒', rarity:'U',price:7,desc:'最後一題分數 ×3；那題答錯，本關直接失敗',lastAllIn:3},
- {id:'overdraft',name:'透支卡',   rarity:'C',price:5,desc:'每關開始預支 +6 金幣；關卡失敗賠 10',overdraft:6}
+ {id:'overdraft',name:'透支卡',   rarity:'C',price:5,desc:'每關開始預支 +6 金幣；關卡失敗賠 10',overdraft:6},
+ /* —— 彩蛋：圖鑑集齊全部道具後才會出現在商店與獎勵裡 —— */
+ {id:'0x1028',   name:'0x1028',   rarity:'X',price:10,desc:'分數 ×2.5；連擊永遠不會被打斷',mult:2.5,keepComboAlways:1}
 ];
+/* 稀有度顯示名 */
+const RARITY={C:'普通',U:'稀有',R:'傳說',X:'彩蛋'};
 /* 術語詞庫：高頻考試縮寫 */
 const DICT={
  'CIA':'機密性 / 完整性 / 可用性（Confidentiality, Integrity, Availability）',
@@ -334,12 +353,23 @@ function loadCustom(){try{return JSON.parse(localStorage.getItem(CKEY)||'[]')}ca
 let BANK=BASE.concat(loadCustom());
 
 /* ================= 狀態 ================= */
-function fresh(){return {v:3,stars:{},boss:{},gold:4,items:[],wrong:{},glossary:{},combo:0,mockPass:0,best:0,seen:{},tot:{q:0,c:0}}}
+function fresh(){return {v:3,stars:{},boss:{},gold:4,items:[],wrong:{},glossary:{},combo:0,mockPass:0,best:0,seen:{},dex:{},egg:false,tot:{q:0,c:0}}}
 let S=fresh();
 try{const raw=localStorage.getItem(SKEY);if(raw){const o=JSON.parse(raw);if(o&&o.v===3)S=Object.assign(fresh(),o)}}catch(e){}
 // 清掉已刪除道具的殘留 id（如舊版錯題本），避免讀取不存在的道具時報錯
 S.items=(S.items||[]).filter(id=>ITEMS.some(i=>i.id===id));
-function save(){try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
+/* ===== 道具圖鑑：記錄「曾經擁有過」的道具 ===== */
+const CODEX=()=>ITEMS.filter(i=>i.rarity!=='X');
+const codexGot=()=>CODEX().filter(i=>S.dex&&S.dex[i.id]).length;
+const codexDone=()=>codexGot()>=CODEX().length;
+function syncDex(){
+  if(!S.dex)S.dex={};
+  for(const id of S.items)if(!S.dex[id])S.dex[id]=1;
+  if(!S.egg&&codexDone()){S.egg=true;S.eggNew=true} // 集齊 → 彩蛋開啟
+}
+const eggOn=()=>!!S.egg;
+function save(){syncDex();try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
+syncDex();
 
 const L=(id)=>LEVELS.find(x=>x.id===id);
 const levelsOf=(ch)=>LEVELS.filter(x=>x.ch===ch);
@@ -363,7 +393,7 @@ function cappedHp(){
 const critBase=()=>0.05+sumOwned('critAdd');
 const critMultOf=()=>Math.max(2,...owned().map(i=>i.critMult||2));
 const shopDisc=()=>sumOwned('shopDisc');
-const rarityW=(ch)=>ch===1?{C:6,U:3,R:1}:ch===2?{C:4,U:4,R:2}:{C:3,U:4,R:3};
+const rarityW=(ch)=>ch===1?{C:6,U:3,R:1,X:2.5}:ch===2?{C:4,U:4,R:2,X:3}:{C:3,U:4,R:3,X:4};
 
 /* ===== 連擊檔位 & Boss 專屬詞條 ===== */
 const tierOf=(c)=>c>=9?9:c>=6?6:c>=3?3:0;
@@ -388,7 +418,7 @@ function pick(pool,n){
 function rollItem(){
   const w=rarityW(B.currentLevel?L(B.currentLevel).ch:1);
   const ownedIds=new Set(S.items);
-  const pool=ITEMS.filter(i=>!ownedIds.has(i.id));
+  const pool=ITEMS.filter(i=>!ownedIds.has(i.id)&&(i.rarity!=='X'||eggOn()));
   if(!pool.length)return null;
   const tot=pool.reduce((a,i)=>a+w[i.rarity],0);let r=Math.random()*tot;
   for(const it of pool){r-=w[it.rarity];if(r<=0)return it}
@@ -398,7 +428,7 @@ function rollOffers(n, ch){
   const out=[];const used=new Set(S.items);
   for(let k=0;k<n;k++){
     const w=rarityW(ch||1);
-    const pool=ITEMS.filter(i=>!used.has(i.id));
+    const pool=ITEMS.filter(i=>!used.has(i.id)&&(i.rarity!=='X'||eggOn()));
     if(!pool.length)break;
     const tot=pool.reduce((a,i)=>a+w[i.rarity],0);let r=Math.random()*tot;let sel=pool[0];
     for(const it of pool){r-=w[it.rarity];if(r<=0){sel=it;break}}
@@ -492,7 +522,7 @@ function lookup(){
 function render(){
   const map={menu:viewMenu,map:viewMap,intro:viewIntro,battle:viewBattle,fail:viewFail,reward:viewReward,
     shop:viewShop,mock:viewMock,mockresult:viewMockResult,review:viewReview,cards:viewCards,import:viewImport,
-    cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop};
+    codex:viewCodex,cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop};
   $().innerHTML=(map[screen]||viewMenu)();
   const tier=(screen==='battle'&&B)?tierOf(B.combo):0;
   document.body.dataset.tier=tier?String(tier):'';
@@ -516,7 +546,7 @@ function startTimer(){
 function viewMenu(){
   const cleared=CHS.filter(c=>c.n<=3&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">1–3 章 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v1.5（2026-10-30）</div></div>
+  <div class="tagline">1–3 章 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v1.6（2026-10-30）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===3?'on':''}">① 三章關卡全清並擊敗章末 Boss（${cleared}/3）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
@@ -524,10 +554,14 @@ function viewMenu(){
    <div class="small">第四章「官方綜合模擬」是額外內容，不計入通關判定（要先打完第三章 Boss 才解鎖）。</div>
    ${itemBar()}
   </div>
+  ${S.eggNew?`<div class="panel eggbox"><div class="ptitle">🎉 彩蛋已解鎖</div>
+   <div class="small">圖鑑集齊了。從現在開始，商店與過關獎勵裡可能出現一件圖鑑上沒有的道具（<b>0x1028</b>），權重比傳說更低——抽不到是正常的。</div>
+   <div class="row"><button class="btn small" data-act="egg-ack">知道了</button></div></div>`:''}
   <div class="grid">
    <button class="btn primary" data-act="map">開始闖關</button>
    <button class="btn" data-act="mock">模擬考試</button>
    <button class="btn" data-act="cards">必背速查</button>
+   <button class="btn" data-act="codex">道具圖鑑（${codexGot()}/${CODEX().length}）</button>
    <button class="btn" data-act="review">錯題本（${wrongCount()}）</button>
    <button class="btn ghost" data-act="import">導入題庫</button>
    <button class="btn ghost danger" data-act="reset">重置進度</button>
@@ -640,7 +674,7 @@ function viewReward(){
   ${S.items.length>=SLOTS?'<div class="card center small">道具欄已滿（5/5）。先賣掉一個，或者跳過拿金幣。</div>':''}
   <div class="offers">
    ${p.offers.map(id=>{const it=ITEMS.find(i=>i.id===id);
-     return `<div class="offer ${it.rarity}"><div class="rname">${it.name}<span class="rar">${it.rarity==='C'?'普通':it.rarity==='U'?'稀有':'傳說'}</span></div>
+     return `<div class="offer ${it.rarity}"><div class="rname">${it.name}<span class="rar">${RARITY[it.rarity]||it.rarity}</span></div>
      <div class="rdesc">${esc(it.desc)}</div>
      <button class="btn small ${S.items.length>=SLOTS?'':'primary'}" data-act="pick" data-id="${id}" ${S.items.length>=SLOTS?'disabled':''}>免費選取</button></div>`}).join('')}
   </div>
@@ -656,7 +690,7 @@ function viewShop(){
   <div class="offers">
    ${sh.offers.map((id,k)=>{const it=ITEMS.find(i=>i.id===id);const p=price(it,k);const full=S.items.length>=SLOTS;
      const half=k===sh.halfIdx;
-     return `<div class="offer ${it.rarity}"><div class="rname">${it.name}<span class="rar">${it.rarity==='C'?'普通':it.rarity==='U'?'稀有':'傳說'}</span></div>
+     return `<div class="offer ${it.rarity}"><div class="rname">${it.name}<span class="rar">${RARITY[it.rarity]||it.rarity}</span></div>
      <div class="rdesc">${esc(it.desc)}</div>
      <div class="price">💰${p}${half?'<span class="half">半價</span>':''}</div>
      <button class="btn small ${S.gold>=p&&!full?'primary':''}" data-act="buy" data-k="${k}" ${S.gold<p||full?'disabled':''}>${full?'欄位已滿':'購買'}</button></div>`}).join('')||'<div class="small">商店空了。</div>'}
@@ -712,7 +746,7 @@ function viewCheatShop(){
   <div class="offers">
    ${ch.offers.map((id,k)=>{const it=ITEMS.find(i=>i.id===id);const p=price(it);
      const full=S.items.length>=SLOTS||ch.buys>=5;
-     return `<div class="offer ${it.rarity}"><div class="rname">${it.name}<span class="rar">${it.rarity==='C'?'普通':it.rarity==='U'?'稀有':'傳說'}</span></div>
+     return `<div class="offer ${it.rarity}"><div class="rname">${it.name}<span class="rar">${RARITY[it.rarity]||it.rarity}</span></div>
      <div class="rdesc">${esc(it.desc)}</div>
      <div class="price">💰${p}</div>
      <button class="btn small ${S.gold>=p&&!full?'primary':''}" data-act="cheat-buy" data-k="${k}" ${S.gold<p||full?'disabled':''}>${full?'不可買':'購買'}</button></div>`}).join('')||'<div class="small">商店空了。</div>'}
@@ -779,6 +813,35 @@ function viewCards(){
   ${Object.keys(S.glossary).length?`<div class="card"><h4>生詞本（查過的縮寫）</h4>
     ${Object.entries(S.glossary).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<div class="mrow"><b>${t}</b><span>${esc(DICT[t]||'（未收錄）')}　<span class="small">查過 ${n} 次</span></span></div>`).join('')}</div>`:''}
   <div class="row"><button class="btn small ghost" data-act="menu">← 返回主菜單</button></div>`;
+}
+function viewCodex(){
+  const total=CODEX().length, got=codexGot();
+  let h=`<div class="hdr"><div class="logo" style="font-size:22px">道具圖鑑</div>
+    <div class="tagline">已收集 ${got} / ${total}${S.egg?' · 彩蛋已開啟':' · 集齊全部後開啟彩蛋'}</div></div>
+  <div class="tbar"><div class="tfill" style="width:${Math.round(got/total*100)}%"></div></div>
+  <div class="small">擁有過一次就會記錄下來，賣掉不影響收集進度。</div>`;
+  for(const r of ['C','U','R','X']){
+    const list=ITEMS.filter(i=>i.rarity===r);
+    if(!list.length)continue;
+    const unlocked=r!=='X'||S.egg;
+    const cnt=r==='X'?(S.egg?'已開啟':'未解鎖'):`${list.filter(i=>S.dex&&S.dex[i.id]).length}/${list.length}`;
+    h+=`<div class="chap"><h3>${RARITY[r]}</h3><div class="w">${cnt}</div></div><div class="codex">`;
+    for(const it of list){
+      const has=r==='X'?S.egg:!!(S.dex&&S.dex[it.id]);
+      h+=`<div class="cx ${it.rarity} ${has?'':'lock'}">
+        <div class="cn">${has?esc(it.name):'???'}<span class="cr">${RARITY[it.rarity]}</span></div>
+        <div class="cd">${has?esc(it.desc):(r==='X'?'集齊全部道具後解鎖':'尚未獲得')}</div>
+        ${has?`<div class="cp">💰${it.price}</div>`:''}</div>`;
+    }
+    h+=`</div>`;
+  }
+  if(S.egg){
+    h+=`<div class="card eggbox"><h4>彩蛋已開啟</h4>
+      <div class="small">彩蛋道具已進入商店與過關獎勵的抽取池（權重比傳說更低）。它不會出現在圖鑑的收集進度裡——抽不到是正常的。</div></div>`;
+  }else{
+    h+=`<div class="card"><h4>彩蛋</h4><div class="small">集齊 ${total} 件道具後，商店與獎勵會開始出現一件圖鑑上沒有的東西。</div></div>`;
+  }
+  return h+`<div class="row"><button class="btn small ghost" data-act="menu">← 返回主菜單</button></div>`;
 }
 function viewImport(){
   return `<div class="hdr"><div class="logo" style="font-size:22px">導入題庫</div><div class="tagline">把官方題庫轉成 JSON 後粘進來</div></div>
@@ -861,8 +924,12 @@ function answer(idx,timedOut){
     if(!timedOut)S.wrong[q.id]=(S.wrong[q.id]||0)+1;
     B.dmg=(B.combo||0)>=6?2:1;
     if(sumOwned('wrongDmg2'))B.dmg=2; // 孤注一擲：不管連擊，失誤就是 2 點
+    // 0x1028：連擊永遠不會斷
+    if(sumOwned('keepComboAlways')){
+      B.note='0x1028：連擊沒有斷';
+    }
     // 活頁夾：答錯時保住連擊（仍扣血）
-    if(B.keepLeft>0&&B.combo>0){
+    else if(B.keepLeft>0&&B.combo>0){
       B.keepLeft--;B.note=`活頁夾發動：連擊 ${B.combo} 保住了（剩 ${B.keepLeft} 次）`;
     }else B.combo=0;
     if(hasMod('interfere')){
@@ -1086,6 +1153,8 @@ document.addEventListener('click',e=>{
   if(act==='map'){screen='map';render()}
   else if(act==='menu'){screen='menu';render()}
   else if(act==='cards'){screen='cards';render()}
+  else if(act==='codex'){screen='codex';render()}
+  else if(act==='egg-ack'){S.eggNew=false;save();render()}
   else if(act==='review'){screen='review';render()}
   else if(act==='review-run'){
     const ids=wrongIds();const qs=pick(ids.map(id=>BANK.find(q=>q.id===id)),Math.min(10,ids.length));
