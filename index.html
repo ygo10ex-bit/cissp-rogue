@@ -155,6 +155,8 @@ body[data-tier="9"] #app::before{animation-duration:.72s;
   box-shadow:0 10px 26px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.07)}
 .qcard::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;
   background:linear-gradient(90deg,transparent,rgba(255,194,51,.75),transparent)}
+/* HUD 容器：桌面下 display:contents 等於不存在，手機下縮成左上角一塊小面板 */
+.hud{display:contents}
 .bbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;
   color:var(--dim);flex-wrap:wrap;gap:6px;font-variant-numeric:tabular-nums}
 .hp{color:var(--bad);font-size:18px;letter-spacing:2px;text-shadow:0 0 12px rgba(229,72,77,.55)}
@@ -369,7 +371,7 @@ body.pachi #app{animation:pachiShake .45s ease-out}
   55%{transform:translate(-3px,-2px)}75%{transform:translate(3px,2px)}}
 body.pachi::after{opacity:.16;animation:pachiRoll .35s linear infinite}
 @keyframes pachiRoll{0%{background-position:0 0}100%{background-position:0 9px}}
-html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%}
+html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-action:pan-y pinch-zoom}
 /* overflow-x:clip 不可滚动（hidden 在某些安卓浏览器上仍能拖动） */
 @supports (overflow-x:clip){html,body{overflow-x:clip}}
 /* 整個遊戲都不需要左右滾：長字串一律斷行，不撐寬版面 */
@@ -480,10 +482,27 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%}
   body.locked .modal{overflow-y:auto;align-items:flex-start;padding:14px}
   body.locked .mbox{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px)}
   body.locked #app>.qcard{flex:0 0 auto;max-height:calc(100vh - 268px);max-height:calc(100dvh - 268px);overflow-y:auto;-webkit-overflow-scrolling:touch}
-  /* 題卡下方整條留給怪物：按鈕貼底，中間的空白就是怪物區 */
-  body.locked #app>.row{margin-top:auto}
-  body.locked #app>.bbar,body.locked #app>.tbar,body.locked #app>.tmeta,
-  body.locked #app>.items,body.locked #app>.mods,body.locked #app>.row{flex:0 0 auto}
+  /* 題卡下方整條留給怪物 */
+  body.locked #app>.hud{flex:0 0 auto}
+  /* 左上角一整塊：血量、題號、金幣、連擊、進度、得分、道具、操作全部塞進來 */
+  body[data-scr="battle"] .hud{
+    display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+    width:fit-content;max-width:82%;padding:7px 10px;border-radius:12px;margin-bottom:8px;
+    background:rgba(8,6,16,.55);border:1px solid rgba(255,255,255,.08);
+    backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+    font-size:10.5px;line-height:1.45;text-align:left}
+  body[data-scr="battle"] .hud .bbar{
+    background:none;border:none;padding:0;margin:0;backdrop-filter:none;-webkit-backdrop-filter:none;gap:1px}
+  body[data-scr="battle"] .hud .tbar{width:100%;max-width:none;margin:3px 0 1px}
+  body[data-scr="battle"] .hud .tmeta{max-width:none;gap:10px}
+  body[data-scr="battle"] .hud .items{margin:2px 0 0;gap:4px}
+  body[data-scr="battle"] .hud .items.big .chip{min-width:0;padding:3px 6px;border-radius:7px;flex-direction:row;gap:4px}
+  body[data-scr="battle"] .hud .items.big .chip .ic{font-size:13px;width:15px;height:15px}
+  body[data-scr="battle"] .hud .items.big .chip .cn{font-size:9.5px}
+  body[data-scr="battle"] .hud .mods{margin:0;gap:4px}
+  body[data-scr="battle"] .hud .mod{font-size:9.5px;padding:1px 6px}
+  body[data-scr="battle"] .hud .row{margin:3px 0 0;gap:4px;flex-wrap:wrap}
+  body[data-scr="battle"] .hud .row .btn{padding:4px 8px;font-size:10.5px;border-radius:7px}
   /* 戰鬥中把背景怪物提亮一點，讓它在題卡下方清楚可見 */
   body[data-scr="battle"] .bgart{opacity:1;background-position:left bottom;background-size:auto 100%;filter:brightness(1.12) saturate(1.05)}
   /* 齒輪移到右上，左上整塊讓給資訊 */
@@ -1378,7 +1397,7 @@ function viewMenu(){
   const ns=nextStop();
   const cleared=CHS.filter(c=>c.n<=MAIN&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.9（2026-10-31）</div></div>
+  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.10（2026-10-31）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===MAIN?'on':''}">① 八章關卡全清並擊敗章末 Boss（${cleared}/${MAIN}）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
@@ -1458,6 +1477,7 @@ function viewBattle(){
   const mods=(B.mods||[]);
   const timeout=B.sel===-1;
   return `${B.flash?`<div class="comboflash t${B.flash}">連擊 ×${B.flash}${B.flash===9?' · 極限':''}</div>`:''}
+  <div class="hud">
   <div class="bbar">
     <div class="hp">${isReview?'錯題重練':('♥'.repeat(Math.max(0,B.hp))+'♡'.repeat(Math.max(0,B.maxhp-B.hp)))}</div>
     <div>${B.mode==='boss'?'⚔️ Boss · ':''}第 ${B.i+1}/${B.qs.length} 題</div>
@@ -1468,6 +1488,11 @@ function viewBattle(){
   ${isReview?'':`<div class="tbar"><div class="tfill" style="width:${pct}%"></div></div>
   <div class="tmeta"><span>得分 <span class="num3d">${fmtNum(B.score)}</span></span><span>目標 <b>${fmtNum(B.target)}</b></span></div>`}
   ${itemBar(true)}
+  ${revealed?'':`<div class="row">
+     ${B.hints>0?`<button class="btn small" data-act="hint">提示（剩 ${B.hints}）</button>`:''}
+     ${B.skips>0?`<button class="btn small" data-act="skipq">跳過（剩 ${B.skips}）</button>`:''}
+     <button class="btn small ghost" data-act="flee">放棄本關</button></div>`}
+  </div>
   <div class="qcard" style="margin-top:10px">
     <div class="qtag">${B.currentLevel||q.level} · ${q.ch===9?'混合題':q.tag} · 難度 ${'●'.repeat(q.diff||2)} · 來源 ${q.src||'原創'}${q.__re?'<span class="retag">回流題 · 半分</span>':''}</div>
     <div class="qtext">${esc(q.q)}</div>
@@ -1480,11 +1505,7 @@ function viewBattle(){
   </div>
   ${revealed?`<div class="fb ${B.sel===q.ans?'ok':'no'}"><div class="t ${B.sel===q.ans?'ok':'no'}">${timeout?'⏱ 超時':B.sel===q.ans?'✓ 正確':'✗ 錯誤'}　正確答案：${'ABCD'[q.ans]}${B.gain?`　+${B.gain} 分`:''}${B.crit?'<span class="crit">暴擊！</span>':''}${q.__re?'<span class="half">半分</span>':''}${!timeout&&B.sel!==q.ans&&B.dmg>0?`　−${B.dmg} 生命${B.dmg>1?'（連擊中斷，代價加倍）':''}`:''}</div>${esc(q.exp)}</div>
    ${B.note?`<div class="hook">${B.note}</div>`:''}
-   <div class="row"><button class="btn primary small" data-act="next">繼續 →</button></div>`:
-   `<div class="row">
-     ${B.hints>0?`<button class="btn small" data-act="hint">提示（剩 ${B.hints}）</button>`:''}
-     ${B.skips>0?`<button class="btn small" data-act="skipq">跳過（剩 ${B.skips}）</button>`:''}
-     <button class="btn small ghost" data-act="flee">放棄本關</button></div>`}
+   <div class="row"><button class="btn primary small" data-act="next">繼續 →</button></div>`:''}
   <button class="dictbtn" data-act="dict">查詞<br><span class="gold">💰${dictPrice()}</span></button>
   ${B.dictOpen?`<div class="modal"><div class="mbox"><div class="mt">縮寫解釋（本關第 ${B.dictUses} 次查詞）</div>
     ${B.dictTerms.map(t=>`<div class="mrow"><b>${t}</b><span>${esc(DICT[t])}</span></div>`).join('')}
