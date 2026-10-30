@@ -187,6 +187,15 @@ body[data-tier="9"] #app::before{animation-duration:.72s;
 .opt:disabled{cursor:default}
 /* ===== 反馈 ===== */
 .fb{margin-top:14px;padding:13px 15px;border-radius:12px;font-size:14px;line-height:1.6}
+/* ===== Boss 登場台詞 ===== */
+.bosstalk{position:relative;border-color:rgba(199,125,255,.45);
+  box-shadow:0 0 26px rgba(199,125,255,.16),inset 0 1px 0 rgba(255,255,255,.06)}
+.bsname{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;
+  border-bottom:1px solid rgba(199,125,255,.22)}
+.bsname b{font-size:19px;color:var(--pur);letter-spacing:1px}
+.bsname span{font-size:11px;color:var(--dim);letter-spacing:1px}
+.bsline{font-size:15.5px;line-height:1.75;color:#e6dcf5;margin:9px 0;padding-left:11px;
+  border-left:2px solid rgba(199,125,255,.42)}
 .fb.ok{background:linear-gradient(180deg,#221a3a,#171028);border:1px solid #2f8f57}
 .fb.no{background:linear-gradient(180deg,#3d1416,#240c0d);border:1px solid #8a2f33}
 .fb .t{font-weight:800;margin-bottom:5px;letter-spacing:.5px}
@@ -517,6 +526,8 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-acti
   .opt{font-size:14px;padding:11px 12px;margin:7px 0;border-radius:10px;line-height:1.4}
   .opt .k{font-size:11px;margin-right:7px}
   .fb{font-size:13px;padding:11px 12px;line-height:1.6}
+  .bsname b{font-size:17px}
+  .bsline{font-size:14.5px;line-height:1.7;margin:8px 0}
   .hook{font-size:11.5px}
   .mod{font-size:10.5px;padding:2px 8px}
   .mods{gap:4px}
@@ -1105,6 +1116,30 @@ const BOSS_MODS={
   pressure: {name:'限時',desc:'每題 45 秒，答對時剩餘秒數 ×2 折算加分'}
 };
 const hasMod=(m)=>!!(B&&B.mods&&B.mods.includes(m));
+/* ===== Boss 人格：同一進化鏈是同一隻怪物，講話方式一致，只是越來越強 =====
+   干擾族＝壞掉的廣播（斷訊、插播、改你的字）
+   失憶族＝溫柔的遺忘（越進化越溫柔、越不容拒絕）
+   限時族＝守時的債主（從玩具鬧鐘一路坐到時鐘王座） */
+const BOSS_CAST={
+  1:{fam:'干擾族',form:'第一形態',name:'靜電小鬼',
+     lines:['你……聽得到我嗎？','聽得到就好。我要把你說的話，一個字一個字改掉。']},
+  4:{fam:'干擾族',form:'第二形態',name:'故障巨獸',
+     lines:['你講的每一句，我都會替你改一個字。','改到你認不出自己為止。']},
+  8:{fam:'干擾族',form:'第三形態',name:'雜訊泰坦',
+     lines:['廣播倒數三次。','第一次：你的答案是錯的。第二次：你還相信它。']},
+  2:{fam:'失憶族',form:'第一形態',name:'迷霧幽靈',
+     lines:['我記得……我記得要說什麼。','再等一下。等我忘了你，你就可以走了。']},
+  5:{fam:'失憶族',form:'第二形態',name:'無面霧魔',
+     lines:['不用查，也不用提示。','忘掉就好。忘了，就不會痛了。']},
+  7:{fam:'失憶族',form:'第三形態',name:'雙頭遺忘者',
+     lines:['一顆頭記得你。','另一顆，已經不記得了。']},
+  3:{fam:'限時族',form:'第一形態',name:'鬧鐘小獸',
+     lines:['滴答。滴答。','你還有三十八秒喔。三十七。三十六。']},
+  6:{fam:'限時族',form:'第二形態',name:'時鐘魔像',
+     lines:['時間到就是時間到。','沒有例外。連我也不例外。']},
+  9:{fam:'限時族',form:'第三形態',name:'時鐘王座',
+     lines:['這座鐘是我在管的。','你的時間，是我借給你的——現在，我要收回。']}
+};
 
 /* ================= 抽題 ================= */
 function weightOf(q){const m=S.wrong[q.id]||0;const d=q.diff||2;return (1+Math.min(m,3)*1.6)*(1+0.22*(d-2))}
@@ -1354,14 +1389,14 @@ function render(){
 
   const map={menu:viewMenu,map:viewMap,intro:viewIntro,battle:viewBattle,fail:viewFail,reward:viewReward,
     shop:viewShop,mock:viewMock,mockresult:viewMockResult,review:viewReview,cards:viewCards,import:viewImport,
-    codex:viewCodex,cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop,codexall:()=>viewCodex(true)};
+    codex:viewCodex,cheatlogin:viewCheatLogin,cheat:viewCheat,cheatshop:viewCheatShop,codexall:()=>viewCodex(true),bossintro:viewBossIntro};
   $().innerHTML=(map[screen]||viewMenu)()+setBtnHtml()+(S.setOpen?setModalHtml():'');
   const tier=(screen==='battle'&&B)?tierOf(B.combo):0;
   document.body.dataset.tier=(tier&&S.fx>0)?String(tier):'';
   document.body.dataset.scr=screen;
   document.body.classList.toggle('locked',screen==='battle'&&!!B&&B.sel===null);
-  const themeCh=(B&&B.mode==='boss')?B.ch:((B&&B.currentLevel&&L(B.currentLevel))?L(B.currentLevel).ch:0);
-  applyTheme(themeCh||0,B&&B.mode==='boss');
+  const themeCh=(B&&(B.mode==='boss'||B.mode==='bossintro'))?B.ch:((B&&B.currentLevel&&L(B.currentLevel))?L(B.currentLevel).ch:0);
+  applyTheme(themeCh||0,B&&(B.mode==='boss'||B.mode==='bossintro'));
   document.body.classList.toggle('fx-off',S.fx===0);
   initStage();
   if(!(S.fx===2&&tier>=9))document.body.classList.remove('pachi');
@@ -1397,7 +1432,7 @@ function viewMenu(){
   const ns=nextStop();
   const cleared=CHS.filter(c=>c.n<=MAIN&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.12（2026-10-31）</div></div>
+  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.13（2026-10-31）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===MAIN?'on':''}">① 八章關卡全清並擊敗章末 Boss（${cleared}/${MAIN}）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
@@ -1469,6 +1504,20 @@ function viewIntro(){
   </div>`;
 }
 
+function viewBossIntro(){
+  const ch=B.ch,c=CHS.find(x=>x.n===ch);
+  const cast=BOSS_CAST[ch]||{fam:'',form:'',name:'???',lines:[]};
+  const mods=(c.bossMods||[]).map(m=>BOSS_MODS[m]?`${BOSS_MODS[m].name}（${BOSS_MODS[m].desc}）`:m);
+  return `<div class="hdr"><div class="logo" style="font-size:22px">⚔️ 第 ${ch} 章 Boss</div>
+    <div class="tagline">${c.name} · 目標 ${fmtNum(c.bossTarget)}</div></div>
+  <div class="card bosstalk">
+    <div class="bsname"><b>${esc(cast.name)}</b><span>${esc(cast.fam)} · ${esc(cast.form)}</span></div>
+    ${cast.lines.map(l=>`<div class="bsline">「${esc(l)}」</div>`).join('')}
+  </div>
+  <div class="panel"><div class="small">20 題 · 15 分鐘${mods.length?'<br>Boss 特性：'+mods.join('　'):''}</div>
+    <div class="row"><button class="btn primary" data-act="boss-go" data-ch="${ch}">開戰</button>
+      <button class="btn small ghost" data-act="map">返回地圖</button></div></div>`;
+}
 function viewBattle(){
   const q=B.qs[B.i];const revealed=B.sel!==null;
   const isReview=B.mode==='review';
@@ -2088,7 +2137,8 @@ document.addEventListener('click',e=>{
   else if(act==='next'){nextQ()}
   else if(act==='flee'){clearInterval(timer);screen='map';B=null;render()}
   else if(act==='retry'){B.sel=null;if(B.mode==='boss')startBoss(B.ch);else startLevel(B.currentLevel)}
-  else if(act==='boss'){startBoss(+el.dataset.ch)}
+  else if(act==='boss'){B={mode:'bossintro',ch:+el.dataset.ch};screen='bossintro';render()}
+  else if(act==='boss-go'){startBoss(+el.dataset.ch)}
   else if(act==='pick'){pickOffer(el.dataset.id)}
   else if(act==='skip'){skipOffer()}
   else if(act==='buy'){buyItem(+el.dataset.k)}
