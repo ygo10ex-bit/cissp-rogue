@@ -442,6 +442,8 @@ html,body{overflow-x:hidden}
   .mixlab .ml2{font-size:10.5px}
   /* 戰鬥頁 */
   .bbar{font-size:11.5px;gap:4px;margin-bottom:8px}
+  /* 左上角齒輪是 fixed，會壓到頂欄第一格（血條 / 模擬考進度），讓它讓位 */
+  body[data-scr="battle"] .bbar,body[data-scr="mock"] .bbar{padding-left:40px}
   .hp{font-size:15px;letter-spacing:1px}
   .tbar{height:8px}
   .tmeta{font-size:11px}
@@ -1297,6 +1299,7 @@ function render(){
   $().innerHTML=(map[screen]||viewMenu)()+setBtnHtml()+(S.setOpen?setModalHtml():'');
   const tier=(screen==='battle'&&B)?tierOf(B.combo):0;
   document.body.dataset.tier=(tier&&S.fx>0)?String(tier):'';
+  document.body.dataset.scr=screen;
   const themeCh=(B&&B.mode==='boss')?B.ch:((B&&B.currentLevel&&L(B.currentLevel))?L(B.currentLevel).ch:0);
   applyTheme(themeCh||0,B&&B.mode==='boss');
   document.body.classList.toggle('fx-off',S.fx===0);
