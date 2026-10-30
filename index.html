@@ -29,7 +29,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opa
 /* CRT 扫描线：很淡，只加质感不加噪 */
 body::after{content:'';position:fixed;inset:0;z-index:99;pointer-events:none;opacity:.055;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.85) 0 1px,transparent 1px 3px)}
-#app{max-width:900px;margin:0 auto;padding:22px 16px 60px;position:relative;z-index:1;
+#app{max-width:840px;margin:0 auto;padding:22px 16px 90px;position:relative;z-index:1;
   animation:fadeUp .35s ease-out both}
 @keyframes fadeUp{from{opacity:0}to{opacity:1}}
 /* ===== 标题 ===== */
@@ -150,7 +150,7 @@ body[data-tier="9"] #app::before{animation-duration:.72s;
 .boss{border:2px dashed #8a5ad6;border-left:4px solid #8a5ad6;
   background:linear-gradient(180deg,#2a1c44,#171029);box-shadow:0 4px 0 rgba(0,0,0,.4),0 0 22px rgba(138,90,214,.16)}
 /* ===== 题卡 ===== */
-.qcard{background:linear-gradient(180deg,#1e1538,#151028);border:2px solid var(--line);
+.qcard{backdrop-filter:blur(6px);background:linear-gradient(180deg,rgba(30,21,56,.9),rgba(21,16,40,.93));border:2px solid var(--line);
   border-radius:16px;padding:18px;position:relative;overflow:hidden;
   box-shadow:0 10px 26px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.07)}
 .qcard::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;
@@ -424,7 +424,64 @@ html,body{overflow-x:hidden}
 .cx.X{border-color:var(--rare);background:linear-gradient(180deg,#4a2c14,#241408);box-shadow:0 0 20px rgba(255,138,61,.2)}
 .eggbox{border:1px solid var(--rare);background:linear-gradient(120deg,#3a2410,#191330 60%)}
 @keyframes flashIn{0%{opacity:0}100%{opacity:1}}
-@media(max-width:560px){.grid{grid-template-columns:1fr}.logo{font-size:26px}.dictbtn{width:62px;font-size:11px;right:6px}
+@media(max-width:640px){
+  /* 手機優先：內容收窄、底部留白讓背景怪物露出來 */
+  #app{padding:12px 10px 180px;max-width:100%}
+  .hdr{margin:6px 0 12px}
+  .logo{font-size:26px;letter-spacing:2px}
+  .tagline{font-size:11.5px;margin-top:4px}
+  .panel{padding:13px 14px;margin:9px 0;border-radius:12px}
+  .ptitle{font-size:11px;margin-bottom:8px}
+  .cond{font-size:13px;margin:5px 0}
+  .small{font-size:11.5px;line-height:1.65}
+  .grid{gap:8px;margin-top:10px}
+  .btn{padding:12px 10px;font-size:14px;border-radius:10px}
+  .btn.small{padding:7px 10px;font-size:12.5px}
+  .mixbar{padding:8px 12px;margin-top:10px}
+  .mixlab .ml1{font-size:12px}
+  .mixlab .ml2{font-size:10.5px}
+  /* 戰鬥頁 */
+  .bbar{font-size:11.5px;gap:4px;margin-bottom:8px}
+  .hp{font-size:15px;letter-spacing:1px}
+  .tbar{height:8px}
+  .tmeta{font-size:11px}
+  .tmeta b{font-size:13px}
+  .items.big{gap:6px;margin:8px 0 4px}
+  .items.big .chip{min-width:58px;padding:7px 8px 6px;border-radius:11px}
+  .items.big .chip .ic{font-size:20px;width:22px;height:22px}
+  .items.big .chip .cn{font-size:10px}
+  .qcard{padding:14px 13px;border-radius:13px}
+  .qtext{font-size:15.5px;line-height:1.55;margin-bottom:12px}
+  .qtag{font-size:10px;margin-bottom:6px}
+  .opt{font-size:14px;padding:11px 12px;margin:7px 0;border-radius:10px;line-height:1.4}
+  .opt .k{font-size:11px;margin-right:7px}
+  .fb{font-size:13px;padding:11px 12px;line-height:1.6}
+  .hook{font-size:11.5px}
+  .mod{font-size:10.5px;padding:2px 8px}
+  .mods{gap:4px}
+  /* 地圖／商店 */
+  .lv{padding:11px 12px;margin:6px 0}
+  .lv .nm{font-size:13px}
+  .lv .idx{width:20px;height:20px;margin-right:8px;font-size:10px}
+  .chap h3{font-size:14.5px}
+  .offers{grid-template-columns:1fr 1fr;gap:8px}
+  .offer{padding:10px;border-radius:11px;gap:6px}
+  .offer .rname{font-size:13px}
+  .offer .rdesc{font-size:11.5px;line-height:1.5}
+  .codex{grid-template-columns:repeat(auto-fill,minmax(46%,1fr));gap:7px}
+  .cx{padding:9px 10px}
+  .cx .cn{font-size:12.5px}
+  .cx .cd{font-size:11px}
+  /* 浮動按鈕 */
+  .dictbtn{width:56px;font-size:11px;right:4px;top:auto;bottom:14px;padding:8px 6px;border-radius:10px}
+  .setbtn{left:8px;top:8px;width:30px;height:30px;font-size:14px}
+  .comboflash{font-size:24px;letter-spacing:2px}
+  .jackpot{font-size:30px;letter-spacing:4px}
+  .mbox{max-width:100%;padding:16px 14px}
+  /* 背景：怪物壓到畫面底部，留白處剛好露出 */
+  .bgart{opacity:.95;background-position:left bottom;background-size:auto 100%}
+  .frameled::before{padding:2px}
+}
   .comboflash{font-size:26px}.codex{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
 </style>
 </head>
@@ -1266,7 +1323,7 @@ function viewMenu(){
   const MAIN=8; // 主線章節數（第 9 章官方模擬是額外內容）
   const cleared=CHS.filter(c=>c.n<=MAIN&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.5（2026-10-30）</div></div>
+  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.6（2026-10-30）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===MAIN?'on':''}">① 八章關卡全清並擊敗章末 Boss（${cleared}/${MAIN}）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
