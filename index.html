@@ -194,7 +194,14 @@ const ITEMS=[
  {id:'coupon',   name:'優惠券',   rarity:'C',price:5,desc:'進商店時，隨機一件商品半價',shopCoupon:1},
  {id:'pension',  name:'退休金',   rarity:'U',price:6,desc:'過關時剩餘生命每點 +2 金幣',hpToGold:2},
  {id:'clutch',   name:'逆轉牌',   rarity:'R',price:9,desc:'生命剩 1 時，分數 ×1.6',clutchMult:1.6},
- {id:'comeback', name:'追分筆記', rarity:'U',price:6,desc:'分數落後目標時，每題 +8 分',behindFlat:8}
+ {id:'comeback', name:'追分筆記', rarity:'U',price:6,desc:'分數落後目標時，每題 +8 分',behindFlat:8},
+ /* —— 高風險高收益：拿得越多，摔得越重 —— */
+ {id:'allin',    name:'孤注一擲', rarity:'R',price:9,desc:'分數 ×1.8，但任何一次答錯都扣 2 生命',allInMult:1.8,wrongDmg2:1},
+ {id:'blood',    name:'血債',     rarity:'R',price:9,desc:'暴擊率 +35%、暴擊 ×2.5，但非暴擊的題只給 60% 分',critAdd:0.35,critMult:2.5,nonCritPenalty:0.6},
+ {id:'island',   name:'孤島',     rarity:'R',price:9,desc:'分數 ×2.2，但生命上限固定為 2',mult:2.2,maxHpCap:2},
+ {id:'gamble',   name:'賭徒硬幣', rarity:'U',price:7,desc:'每題 25% 分數 ×3、25% 分數 ×0，其餘不變',gamble:1},
+ {id:'ultimatum',name:'最後通牒', rarity:'U',price:7,desc:'最後一題分數 ×3；那題答錯，本關直接失敗',lastAllIn:3},
+ {id:'overdraft',name:'透支卡',   rarity:'C',price:5,desc:'每關開始預支 +6 金幣；關卡失敗賠 10',overdraft:6}
 ];
 /* 術語詞庫：高頻考試縮寫 */
 const DICT={
@@ -347,6 +354,12 @@ const wrongCount=()=>wrongIds().length;
 const owned=()=>S.items.map(id=>ITEMS.find(i=>i.id===id)).filter(Boolean);
 const sumOwned=(k)=>owned().reduce((a,i)=>a+(i[k]||0),0);
 const maxHpBase=()=>Math.max(1,3+sumOwned('maxHp'));
+// 孤島：生命上限被硬壓到 2（咖啡之類的加成也救不回來）
+function cappedHp(){
+  let m=maxHpBase();
+  for(const it of owned())if(it.maxHpCap)m=Math.min(m,it.maxHpCap);
+  return Math.max(1,m);
+}
 const critBase=()=>0.05+sumOwned('critAdd');
 const critMultOf=()=>Math.max(2,...owned().map(i=>i.critMult||2));
 const shopDisc=()=>sumOwned('shopDisc');
@@ -415,14 +428,26 @@ function calcScore(idx){
     if(it.mult)mult*=it.mult;
     if(it.clutchMult&&B.hp<=1)mult*=it.clutchMult;              // 逆轉牌：殘血時放大
     if(it.behindFlat&&B.target&&B.score<B.target)flat+=it.behindFlat; // 追分筆記：落後時補分
+    if(it.allInMult)mult*=it.allInMult;                        // 孤注一擲：大乘區，代價在 answer()
+    if(it.lastAllIn&&idx===B.qs.length-1)mult*=it.lastAllIn;   // 最後通牒：最後一題加倍
     cScale+=it.comboScale||0;
   }
   let streak=1+0.25*(combo-1)+cScale*(combo-1);
   if(streak>4)streak=4; // 連擊倍率上限，跨關累積時防止數值失控
   const crit=Math.random()<critC;
   let v=Math.round(flat*streak*mult*(crit?critM:1));
+  // 血債：暴擊吃紅利，沒爆就吞懲罰
+  let bloodPen=false;
+  if(!crit){for(const it of owned())if(it.nonCritPenalty){v=Math.round(v*it.nonCritPenalty);bloodPen=true}}
+  // 賭徒硬幣：純隨機，25% 三倍、25% 歸零
+  let gamble='';
+  if(owned().some(x=>x.gamble)){
+    const g=Math.random();
+    if(g<0.25){v*=3;gamble='win'}
+    else if(g<0.5){v=0;gamble='lose'}
+  }
   if(B.qs[idx]&&B.qs[idx].__re)v=Math.round(v*0.5); // 錯題回流的題目只給半分
-  return {v,crit};
+  return {v,crit,gamble,bloodPen};
 }
 
 /* ================= 通用 ================= */
@@ -491,7 +516,7 @@ function startTimer(){
 function viewMenu(){
   const cleared=CHS.filter(c=>c.n<=3&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">1–3 章 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v1.4（2026-10-30）</div></div>
+  <div class="tagline">1–3 章 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v1.5（2026-10-30）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===3?'on':''}">① 三章關卡全清並擊敗章末 Boss（${cleared}/3）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
@@ -544,7 +569,7 @@ function viewIntro(){
   <div class="card"><h4>概念卡（先看這幾條）</h4><ul>${l.card.map(x=>`<li>${x}</li>`).join('')}</ul>
     <div class="trap">⚠ 陷阱：${l.trap}</div></div>
   ${itemBar()}
-  <div class="panel"><div class="small">6 題 · 生命 ${maxHpBase()} 點 · 答錯扣 1 且斷連擊 · 得分達到目標分才過關。<br>
+  <div class="panel"><div class="small">6 題 · 生命 ${cappedHp()} 點 · 答錯扣 1 且斷連擊 · 得分達到目標分才過關。<br>
   連擊倍率 ≈ 1+0.25×(連擊−1)，最高 ×4；<b>連擊跨關保留</b>，通過關卡不清零，答錯或失敗才斷。連擊 3 / 6 / 9 會進入新檔位（畫面有提示）。<br>
   連擊 ≥6 時答錯扣 <b>2</b> 生命（低於 6 扣 1）。<b>答錯的題會回流到本關隊尾</b>，必須再答一次，但那題只給半分。當前連擊：${S.combo||0}。道具進一步放大分數。</div>
     <div class="row"><button class="btn primary small" data-act="start">開始本關</button>
@@ -600,7 +625,7 @@ function viewFail(){
     <div class="big">☠</div>
     <div class="stat">得分 <b>${r.score}</b> / 目標 <b>${r.target}</b> · 正確 <b>${r.correct}/${r.total}</b> · 剩餘生命 <b>${Math.max(0,B.hp)}</b></div>
     ${B.dictThis&&B.dictThis.length?`<div class="small">本關查過：${B.dictThis.join('、')}</div>`:''}
-    <div class="stat">${r.refund?`保險單返還 ${r.refund} 金幣`:'道具與金幣保留，重打本關'}</div>
+    <div class="stat">${r.refund?`保險單返還 ${r.refund} 金幣`:''}${r.penalty?`${r.refund?'　':''}透支卡賠了 ${r.penalty} 金幣`:''}${!r.refund&&!r.penalty?'道具與金幣保留，重打本關':''}</div>
     <div class="row" style="justify-content:center"><button class="btn primary small" data-act="retry">重打本關</button>
     <button class="btn small ghost" data-act="map">回到地圖</button></div>
   </div>`;
@@ -770,26 +795,32 @@ function viewImport(){
 function startLevel(id){
   const l=L(id);const pool=poolOf(id);
   if(!pool.length){alert('這個關卡還沒有題目');return}
-  const myMax=maxHpBase();
+  const myMax=cappedHp();
+  const od=sumOwned('overdraft');
+  if(od){S.gold+=od;save()} // 透支卡：先預支，失敗再賠
   B={mode:'level',currentLevel:id,qs:pick(pool,6),i:0,hp:myMax,maxhp:myMax,target:l.target,
      score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],hints:sumOwned('hints'),shieldLeft:sumOwned('shield'),
      skips:sumOwned('skips'),dictUses:0,dictThis:[],
      reviveLeft:owned().some(x=>x.revive)?1:0,gain:0,crit:false,
-     mods:[],reflow:true,reflowed:new Set(),keepLeft:sumOwned('keepCombo'),flash:0,note:''};
+     mods:[],reflow:true,reflowed:new Set(),keepLeft:sumOwned('keepCombo'),flash:0,note:'',
+     overdraft:od?10:0};
   screen='battle';render();
 }
 function startBoss(ch){
   const c=CHS.find(x=>x.n===ch);const pool=poolCh(ch);
-  const myMax=maxHpBase();
+  const myMax=cappedHp();
   const extra=owned().some(x=>x.bossTime)?300:0;
   const mods=(c.bossMods||[]).slice();
   const amnesia=mods.includes('amnesia');
+  const od=sumOwned('overdraft');
+  if(od){S.gold+=od;save()}
   B={mode:'boss',currentLevel:levelsOf(ch).slice(-1)[0].id,ch,qs:pick(pool,20),i:0,hp:myMax,maxhp:myMax,
      target:c.bossTarget,score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],
      hints:amnesia?0:sumOwned('hints'),
      shieldLeft:sumOwned('shield'),skips:sumOwned('skips'),dictUses:0,dictThis:[],
      reviveLeft:owned().some(x=>x.revive)?1:0,gain:0,crit:false,
      mods,reflow:false,reflowed:new Set(),keepLeft:sumOwned('keepCombo'),flash:0,note:'',
+     overdraft:od?10:0,
      qDeadline:mods.includes('pressure')?Date.now()+45000:0,
      deadline:Date.now()+(15*60+extra)*1000};
   screen='battle';render();
@@ -807,10 +838,14 @@ function answer(idx,timedOut){
     B.correct++;S.tot.c++;B.combo++;
     const r=calcScore(B.i);B.gain=r.v;B.crit=r.crit;B.score+=r.v;
     S.gold+=sumOwned('goldPerCorrect');
+    if(r.gamble==='win')B.note='賭徒硬幣：骰中了，這題 ×3';
+    else if(r.gamble==='lose')B.note='賭徒硬幣：這次空了，這題 0 分';
+    if(r.bloodPen)B.note=(B.note?B.note+'　':'')+'血債：沒爆擊，這題只算 60%';
     // 限時詞條：剩餘秒數折算加分
     if(hasMod('pressure')){
       const sec=Math.round(leftMs/1000),bonus=sec*2;
-      if(bonus>0){B.gain+=bonus;B.score+=bonus;B.note=`限時獎勵 +${bonus} 分（剩 ${sec} 秒）`}
+      if(bonus>0){B.gain+=bonus;B.score+=bonus;
+        B.note=(B.note?B.note+'　':'')+`限時獎勵 +${bonus} 分（剩 ${sec} 秒）`}
     }
     // 三連夾：連擊每到 N 的倍數觸發
     for(const it of owned()){
@@ -825,6 +860,7 @@ function answer(idx,timedOut){
   }else{
     if(!timedOut)S.wrong[q.id]=(S.wrong[q.id]||0)+1;
     B.dmg=(B.combo||0)>=6?2:1;
+    if(sumOwned('wrongDmg2'))B.dmg=2; // 孤注一擲：不管連擊，失誤就是 2 點
     // 活頁夾：答錯時保住連擊（仍扣血）
     if(B.keepLeft>0&&B.combo>0){
       B.keepLeft--;B.note=`活頁夾發動：連擊 ${B.combo} 保住了（剩 ${B.keepLeft} 次）`;
@@ -838,6 +874,11 @@ function answer(idx,timedOut){
     }else if(B.shieldLeft>0){
       B.shieldLeft--;B.dmg=0;
     }else B.hp-=B.dmg;
+    // 最後通牒：最後一題答錯直接判負（要在回流之前判斷，回流會改變長度）
+    if(B.mode!=='review'&&sumOwned('lastAllIn')&&B.i===B.qs.length-1){
+      B.hp=0;
+      B.note=(B.note?B.note+'　':'')+'最後通牒：最後一題答錯，本關直接失敗';
+    }
     // 錯題回流：本關結束前要再見一次，答對只給半分
     if(B.reflow&&!q.__re&&!B.reflowed.has(q.id)&&!timedOut){
       B.reflowed.add(q.id);
@@ -881,8 +922,10 @@ function finishBattle(){
     let refund=0;
     if(B.mode==='level'||B.mode==='boss'){refund=sumOwned('failRefund')}
     if(refund){S.gold+=refund}
+    let penalty=0;
+    if(B.overdraft){penalty=Math.min(S.gold,B.overdraft);S.gold-=penalty} // 透支卡：失敗要賠
     S.combo=0; // 關卡失敗，連擊斷
-    B.result={score:B.score,target:B.target,correct:B.correct,total,refund};
+    B.result={score:B.score,target:B.target,correct:B.correct,total,refund,penalty};
     B.hp=Math.max(0,B.hp);save();screen='fail';render();return;
   }
   const ratio=B.score/B.target;
