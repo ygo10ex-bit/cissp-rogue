@@ -622,6 +622,12 @@ const ITEMS=[
  {id:'ledger2', name:'複利筆記', rarity:'U', price:16, desc:'每通過 1 關，基礎分 +3（上限 +60）', grow:'ledger2'},
  {id:'critcore', name:'暴擊核心', rarity:'R', price:30, desc:'每次暴擊，暴擊倍率 +0.08（上限 +3）', grow:'critcore'},
  {id:'streakcore', name:'連勝核心', rarity:'R', price:32, desc:'連擊每跨一檔，分數乘區 +0.5（上限 +5）', grow:'streakcore'},
+ {id:'pact', name:'深潛者的契約', rarity:'R', price:36, desc:'分數 ×5（乘區），但每關開始扣 1 生命', mult:5,startHpCost:1},
+ {id:'cannon', name:'玻璃大砲', rarity:'R', price:32, desc:'分數 ×6（乘區），但暴擊率歸零', mult:6,nocrit:1},
+ {id:'wealth', name:'財富自由', rarity:'R', price:34, desc:'每 25 金幣，分數乘區 +0.1', wealthMult:25},
+ {id:'snake', name:'貪食蛇', rarity:'U', price:18, desc:'每答對一題，本關分數再 +25%（答錯就清空）', snake:1},
+ {id:'combobank', name:'連擊銀行', rarity:'U', price:17, desc:'斷連擊時，保留一半連擊數', comboKeepHalf:1},
+ {id:'bank', name:'利息帳戶', rarity:'C', price:10, desc:'過關時，手上每 10 金幣額外 +1 金幣', interest:10},
  {id:'0x1028', name:'0x1028', rarity:'X', price:45, desc:'分數 ×6；連擊永遠不會被打斷', mult:6,keepComboAlways:1}
 ];
 /* 道具圖示：重點道具用手繪 SVG，其餘用 emoji */
@@ -643,7 +649,7 @@ const ITEM_EMOJI={
  coin:'🪙',amulet:'🧿',belt:'🥋',piggy:'🐷',ledger:'📒',armor:'🦺',refbook:'📕',starter:'🚩',
  accel:'🏎',member:'🆔',wholesale:'📦',metronome:'🎵',repeater:'🔁',dice:'🎲',skipper:'⏭',
  binder:'📁',triple:'🔗',coupon:'🎟',pension:'👛',clutch:'🔄',comeback:'📈',allin:'💥',
- blood:'🩸',island:'🏝',gamble:'🎰',ultimatum:'⚠','0x1028':'🌀',overdraft:'💳',whetstone:'🪨',ledger2:'📊',critcore:'💥',streakcore:'🔥'
+ blood:'🩸',island:'🏝',gamble:'🎰',ultimatum:'⚠','0x1028':'🌀',overdraft:'💳',whetstone:'🪨',ledger2:'📊',critcore:'💥',streakcore:'🔥',pact:'🐙',cannon:'💎',wealth:'🤑',snake:'🐍',combobank:'🏧',bank:'🏦'
 };
 function itemIcon(id){
   return ITEM_IMG[id] ? `<i class="ic sv"><img src="${ITEM_IMG[id]}" alt=""></i>` : `<i class="ic">${ITEM_EMOJI[id]||'❓'}</i>`;
@@ -1184,6 +1190,7 @@ function currentCh(){
 function calcScore(idx){
   const G=S.grow||{};
   let flat=10,mult=1,critC=critBase(),critM=critMultOf(),cScale=0;
+  if(owned().some(x=>x.nocrit))critC=0;   // 玻璃大砲：不會暴擊
   flat+=Math.min(60,(G.ledger2||0)*3);
   mult+=Math.min(4,(G.whetstone||0)*0.04)+Math.min(5,(G.streakcore||0)*0.5);
   critM+=Math.min(3,(G.critcore||0)*0.08);
@@ -1204,6 +1211,7 @@ function calcScore(idx){
     if(it.behindFlat&&B.target&&B.score<B.target)flat+=it.behindFlat; // 追分筆記：落後時補分
     if(it.allInMult)mult*=it.allInMult;                        // 孤注一擲：大乘區，代價在 answer()
     if(it.lastAllIn&&idx===B.qs.length-1)mult*=it.lastAllIn;   // 最後通牒：最後一題加倍
+    if(it.wealthMult)mult+=Math.floor(S.gold/it.wealthMult)*0.1; // 財富自由：囤錢轉乘區
     cScale+=it.comboScale||0;
   }
   let streak=1+0.28*(combo-1)+cScale*(combo-1);
@@ -1222,6 +1230,7 @@ function calcScore(idx){
     else if(g<0.5){v=0;gamble='lose'}
   }
   if(B.qs[idx]&&B.qs[idx].__re)v=Math.round(v*0.5); // 錯題回流的題目只給半分
+  if(B.snake)v=Math.round(v*(1+B.snake));           // 貪食蛇：本關累積的加成
   return {v,crit,gamble,bloodPen};
 }
 
@@ -1432,7 +1441,7 @@ function viewMenu(){
   const ns=nextStop();
   const cleared=CHS.filter(c=>c.n<=MAIN&&S.boss[c.n]).length;
   return `<div class="hdr"><div class="logo">CISSP <span>通關</span></div>
-  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.14（2026-10-31）</div></div>
+  <div class="tagline">八大領域 + 官方模擬 · 構築型肉鴿 · 題庫 ${BANK.length} 題 · v3.15（2026-10-31）</div></div>
   <div class="panel"><div class="ptitle">通關條件</div>
    <div class="cond ${cleared===MAIN?'on':''}">① 八章關卡全清並擊敗章末 Boss（${cleared}/${MAIN}）</div>
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
@@ -1794,9 +1803,10 @@ function startLevel(id){
   const myMax=cappedHp();
   const od=sumOwned('overdraft');
   if(od){S.gold+=od;save()} // 透支卡：先預支，失敗再賠
-  B={mode:'level',currentLevel:id,qs:pick(pool,6,mixWeight(id)),i:0,hp:myMax,maxhp:myMax,target:l.target,
+  const hpCost=sumOwned('startHpCost');
+  B={mode:'level',currentLevel:id,qs:pick(pool,6,mixWeight(id)),i:0,hp:Math.max(1,myMax-hpCost),maxhp:myMax,target:l.target,
      score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],hints:sumOwned('hints'),shieldLeft:sumOwned('shield'),lvMult:l.mult||1,
-     skips:sumOwned('skips'),dictUses:0,dictThis:[],
+     skips:sumOwned('skips'),dictUses:0,dictThis:[],snake:0,
      reviveLeft:owned().some(x=>x.revive)?1:0,gain:0,crit:false,
      mods:[],reflow:true,reflowed:new Set(),keepLeft:sumOwned('keepCombo'),flash:0,note:'',
      overdraft:od?10:0};
@@ -1810,10 +1820,11 @@ function startBoss(ch){
   const amnesia=mods.includes('amnesia');
   const od=sumOwned('overdraft');
   if(od){S.gold+=od;save()}
-  B={mode:'boss',currentLevel:levelsOf(ch).slice(-1)[0].id,ch,qs:pick(pool,20,mixWeightCh(ch)),i:0,hp:myMax,maxhp:myMax,
+  const hpCost=sumOwned('startHpCost');
+  B={mode:'boss',currentLevel:levelsOf(ch).slice(-1)[0].id,ch,qs:pick(pool,20,mixWeightCh(ch)),i:0,hp:Math.max(1,myMax-hpCost),maxhp:myMax,
      target:c.bossTarget,lvMult:(levelsOf(ch).slice(-1)[0].mult)||1,score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],
      hints:amnesia?0:sumOwned('hints'),
-     shieldLeft:sumOwned('shield'),skips:sumOwned('skips'),dictUses:0,dictThis:[],
+     shieldLeft:sumOwned('shield'),skips:sumOwned('skips'),dictUses:0,dictThis:[],snake:0,
      reviveLeft:owned().some(x=>x.revive)?1:0,gain:0,crit:false,
      mods,reflow:false,reflowed:new Set(),keepLeft:sumOwned('keepCombo'),flash:0,note:'',
      overdraft:od?10:0,
@@ -1861,6 +1872,11 @@ function answer(idx,timedOut){
     const after=tierOf(B.combo);
     if(after>before){B.flash=after;if(S.fx>0)SFX.tier(after);if(after>=9)pachi();
       if(owned().some(x=>x.grow==='streakcore'))S.grow.streakcore=(S.grow.streakcore||0)+1;} // 跨過連擊檔位
+    // 貪食蛇：答對一題就長一截，下一題起算
+    if(sumOwned('snake')){
+      B.snake=(B.snake||0)+0.25;
+      B.note=(B.note?B.note+'　':'')+`貪食蛇：本關累積 +${Math.round(B.snake*100)}%（答錯就清空）`;
+    }
     if(B.mode==='review'&&S.wrong[q.id]){S.wrong[q.id]--;if(S.wrong[q.id]<=0)delete S.wrong[q.id]}
   }else{
     if(S.fx>0)SFX.wrong();
@@ -1875,7 +1891,7 @@ function answer(idx,timedOut){
     // 活頁夾：答錯時保住連擊（仍扣血）
     else if(B.keepLeft>0&&B.combo>0){
       B.keepLeft--;B.note=`活頁夾發動：連擊 ${B.combo} 保住了（剩 ${B.keepLeft} 次）`;
-    }else B.combo=0;
+    }else B.combo=sumOwned('comboKeepHalf')>0?Math.floor(B.combo/2):0;   // 連擊銀行：只斷一半
     if(hasMod('interfere')){
       const pen=Math.round(B.target*0.08);
       B.score=Math.max(0,B.score-pen);B.dmg=0;
@@ -1889,6 +1905,11 @@ function answer(idx,timedOut){
     if(B.mode!=='review'&&sumOwned('lastAllIn')&&B.i===B.qs.length-1){
       B.hp=0;
       B.note=(B.note?B.note+'　':'')+'最後通牒：最後一題答錯，本關直接失敗';
+    }
+    // 貪食蛇：只要錯一次，本關累積全部歸零
+    if(sumOwned('snake')&&B.snake){
+      B.snake=0;
+      B.note=(B.note?B.note+'　':'')+'貪食蛇：累積清空';
     }
     // 錯題回流：本關結束前要再見一次，答對只給半分
     if(B.reflow&&!q.__re&&!B.reflowed.has(q.id)&&!timedOut){
@@ -1942,6 +1963,7 @@ function finishBattle(){
   if(owned().some(x=>x.grow==='ledger2'))S.grow.ledger2=(S.grow.ledger2||0)+1;
   const ratio=B.score/B.target;
   let goldGain=4+B.hp*2+(ratio>=1.3?2:0)+sumOwned('endGold')+B.hp*sumOwned('hpToGold');
+  for(const it of owned())if(it.interest)goldGain+=Math.floor(S.gold/it.interest); // 利息帳戶
   if(B.mode==='boss')goldGain+=8;
   S.gold+=goldGain;
   if(B.mode==='level'){
