@@ -442,12 +442,29 @@ html,body{overflow-x:hidden}
   .mixlab .ml2{font-size:10.5px}
   /* 戰鬥頁 */
   .bbar{font-size:11.5px;gap:4px;margin-bottom:8px}
-  /* 左上角齒輪是 fixed，會壓到頂欄第一格（血條 / 模擬考進度），讓它讓位 */
-  body[data-scr="battle"] .bbar,body[data-scr="mock"] .bbar{padding-left:40px}
   .hp{font-size:15px;letter-spacing:1px}
   .tbar{height:8px}
   .tmeta{font-size:11px}
   .tmeta b{font-size:13px}
+  /* 手機戰鬥頁：所有資訊收進左上角一小塊，右側與下方整片留給怪物 */
+  body[data-scr="battle"] .bbar,body[data-scr="mock"] .bbar{
+    flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:1px;
+    width:fit-content;max-width:74%;margin:0 0 5px;padding:6px 9px;
+    font-size:10.5px;line-height:1.45;text-align:left;
+    background:rgba(8,6,16,.5);border:1px solid rgba(255,255,255,.07);border-radius:10px;
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  body[data-scr="battle"] .hp,body[data-scr="mock"] .hp{font-size:13px;letter-spacing:1px}
+  body[data-scr="battle"] .tbar,body[data-scr="mock"] .tbar{max-width:190px;margin:4px 0 2px}
+  body[data-scr="battle"] .tmeta{justify-content:flex-start;gap:12px;font-size:10.5px;max-width:190px}
+  body[data-scr="battle"] .tmeta b{font-size:13px}
+  /* 題卡與選項半透明，讓背後的怪物透出來 */
+  body[data-scr="battle"] .qcard,body[data-scr="mock"] .qcard{
+    background:linear-gradient(180deg,rgba(30,21,56,.42),rgba(21,16,40,.55));
+    backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px)}
+  body[data-scr="battle"] .opt:not(.correct):not(.wrong){
+    background:linear-gradient(180deg,rgba(42,31,77,.62),rgba(29,21,56,.7))}
+  /* 齒輪移到右上，左上整塊讓給資訊 */
+  body[data-scr="battle"] .setbtn,body[data-scr="mock"] .setbtn{left:auto;right:8px;top:8px}
   .items.big{gap:6px;margin:8px 0 4px}
   .items.big .chip{min-width:58px;padding:7px 8px 6px;border-radius:11px}
   .items.big .chip .ic{font-size:20px;width:22px;height:22px}
