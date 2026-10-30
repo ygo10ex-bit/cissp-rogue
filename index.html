@@ -1400,7 +1400,7 @@ function viewIntro(){
   ${S.mix?'<div class="small" style="color:var(--gold)">混合模式：本章任何考點都可能出現。</div>':''}
   <div class="panel"><div class="small">6 題 · 生命 ${cappedHp()} 點 · 答錯扣 1 且斷連擊 · 得分達到目標分才過關。<br>
   連擊倍率 ≈ 1+0.28×(連擊−1)，最高 ×5；<b>連擊跨關保留</b>，通過關卡不清零，答錯或失敗才斷。連擊 3 / 9 / 15 會進入新檔位（畫面上火焰會變大、變色）。<br>
-  連擊 ≥6 時答錯扣 <b>2</b> 生命（低於 6 扣 1）。<b>答錯的題會回流到本關隊尾</b>，必須再答一次，但那題只給半分。當前連擊：${S.combo||0}。道具進一步放大分數。</div>
+  答錯一律扣 <b>1</b> 生命，連擊直接斷、倍率從頭爬——這個代價已經夠了，不再額外加罰。<b>答錯的題會回流到本關隊尾</b>，必須再答一次，但那題只給半分。當前連擊：${S.combo||0}。道具進一步放大分數。</div>
     <div class="row"><button class="btn primary small" data-act="start">開始本關</button>
       <button class="btn small ghost" data-act="map">返回地圖</button></div>
   </div>`;
@@ -1746,7 +1746,7 @@ function answer(idx,timedOut){
     if(S.fx>0)SFX.wrong();
     fxFlash('bad');
     if(!timedOut)S.wrong[q.id]=(S.wrong[q.id]||0)+1;
-    B.dmg=(B.combo||0)>=6?2:1;
+    B.dmg=1;
     if(sumOwned('wrongDmg2'))B.dmg=2; // 孤注一擲：不管連擊，失誤就是 2 點
     // 0x1028：連擊永遠不會斷
     if(sumOwned('keepComboAlways')){
