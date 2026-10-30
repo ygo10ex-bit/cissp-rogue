@@ -459,15 +459,22 @@ html,body{overflow-x:hidden}
   body[data-scr="battle"] .tmeta b{font-size:13px}
   /* 題卡與選項半透明，讓背後的怪物透出來 */
   body[data-scr="battle"] .qcard,body[data-scr="mock"] .qcard{
-    background:linear-gradient(180deg,rgba(30,21,56,.78),rgba(21,16,40,.86));
+    background:linear-gradient(180deg,rgba(30,21,56,.74),rgba(21,16,40,.82));
     backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);
-    min-height:calc(100vh - 250px);min-height:calc(100dvh - 250px);
     padding:16px 14px;display:flex;flex-direction:column}
   body[data-scr="battle"] .qcard .qtag,body[data-scr="battle"] .qcard .qtext{flex:none}
   body[data-scr="battle"] .opt:not(.correct):not(.wrong){
     background:linear-gradient(180deg,rgba(42,31,77,.82),rgba(29,21,56,.88))}
-  body[data-scr="battle"] .opt{font-size:15px;padding:16px 13px;margin:10px 0;flex:0 0 auto;display:flex;align-items:center}
+  body[data-scr="battle"] .opt{font-size:15px;padding:14px 13px;margin:8px 0;flex:1 1 auto;min-height:56px;max-height:104px;display:flex;align-items:center}
   body[data-scr="battle"] .qtext{font-size:16.5px;line-height:1.6}
+  /* 一屏頁面：不讓使用者上下左右拖動；只有圖鑑、地圖這類長頁面才滾 */
+  body[data-scr="battle"] #app,body[data-scr="mock"] #app{padding-bottom:12px}
+  body.locked,body.locked #app{overflow:hidden;overscroll-behavior:none}
+  html:has(body.locked){overflow:hidden;overscroll-behavior:none}
+  body.locked #app{height:100vh;height:100dvh;display:flex;flex-direction:column;padding:10px 10px 12px}
+  body.locked #app>.qcard{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  body.locked #app>.bbar,body.locked #app>.tbar,body.locked #app>.tmeta,
+  body.locked #app>.items,body.locked #app>.mods,body.locked #app>.row{flex:0 0 auto}
   /* 齒輪移到右上，左上整塊讓給資訊 */
   body[data-scr="battle"] .setbtn,body[data-scr="mock"] .setbtn{left:auto;right:8px;top:8px}
   .items.big{gap:6px;margin:8px 0 4px}
@@ -1322,6 +1329,7 @@ function render(){
   const tier=(screen==='battle'&&B)?tierOf(B.combo):0;
   document.body.dataset.tier=(tier&&S.fx>0)?String(tier):'';
   document.body.dataset.scr=screen;
+  document.body.classList.toggle('locked',screen==='battle'&&!!B&&B.sel===null);
   const themeCh=(B&&B.mode==='boss')?B.ch:((B&&B.currentLevel&&L(B.currentLevel))?L(B.currentLevel).ch:0);
   applyTheme(themeCh||0,B&&B.mode==='boss');
   document.body.classList.toggle('fx-off',S.fx===0);
