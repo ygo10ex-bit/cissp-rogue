@@ -1671,7 +1671,7 @@ function starTotal(){return Object.values(S.stars||{}).reduce((a,b)=>a+(b||0),0)
 function reportNow(){
   if(!S||typeof S!=='object')return;
   const payload={
-    id:ensurePid(), n:playName().slice(0,14), g:STAT_GAME,
+    id:ensurePid(), n:playName().slice(0,14), g:STAT_GAME, tc:CHS.length,
     lv:Object.keys(S.stars||{}).length, ch:maxChapter(), st:starTotal(),
     q:(S.tot&&S.tot.q)||0, c:(S.tot&&S.tot.c)||0,
     ms:Math.round(S.playMs||0), dex:codexGot(), t:Date.now()
@@ -1734,7 +1734,7 @@ function viewStats(){
   return head+`<div class="panel"><div class="ptitle">概況</div>
     <div class="small">${STATS.length} 位玩家 · 合計答題 ${fmtNum(totalQ)} 題 · 合計遊玩 ${fmtDur(totalMs)}</div></div>
   <div class="stlist">${STATS.map(x=>`<div class="strow${x.id===me?' me':''}">
-    <div class="stn">${esc(x.n||'無名玩家')}<span class="stg">${x.g==='econ'?'經濟':'CISSP'}</span>${x.id===me?'<span class="stme">你</span>':''}</div>
+    <div class="stn">${esc(x.n||'無名玩家')}<span class="stg">${x.g==='econ'?'經濟':'CISSP'}, ${x.tc||(x.g==='econ'?2:9)} 章</span>${x.id===me?'<span class="stme">你</span>':''}</div>
     <div class="stm">第 ${x.ch||0} 章通關 · ${x.lv||0} 關 · ${x.st||0} 星</div>
     <div class="stm2">答題 ${fmtNum(x.q||0)} · 正確率 ${x.q?Math.round((x.c||0)/x.q*100):0}% · ${fmtDur(x.ms)} · 圖鑑 ${x.dex||0}</div>
     <div class="std">${fmtAgo(x.t)}</div></div>`).join('')}</div>
