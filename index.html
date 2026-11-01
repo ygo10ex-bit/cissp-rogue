@@ -1693,7 +1693,7 @@ function viewMap(){
   const nowId=(ns&&ns.type==='level')?ns.id:null;
   for(const c of CHS){
     const un=chUnlocked(c.n);const done=!!S.boss[c.n];
-    h+=`<div class="chap"><h3>${c.name}</h3><div class="w">${c.weight>0?c.weight+'%':'額外'}${done?' · 已通關':''}</div></div>`;
+    h+=`<div class="chap"><h3>${c.name}</h3><div class="w">${c.weight>0?'考試佔比 '+c.weight+'%':'額外'}${done?' · 已通關':''}</div></div>`;
     for(const l of levelsOf(c.n)){
       const st=starsOf(l.id);const ok=lvUnlocked(l.id);
       const idx=levelsOf(c.n).indexOf(l)+1;
