@@ -485,6 +485,8 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-acti
 .stn{font-size:14.5px;font-weight:600;letter-spacing:.3px}
 .stme{display:inline-block;font-size:10px;font-weight:800;color:#2a1800;background:var(--gold);
   border-radius:4px;padding:1px 5px;margin-left:8px;vertical-align:2px}
+.stg{display:inline-block;font-size:10px;font-weight:700;color:#9a8fc4;background:#241a3c;
+  border:1px solid #3b2d58;border-radius:4px;padding:1px 6px;margin-left:8px;vertical-align:2px;letter-spacing:.5px}
 .stm{font-size:12.5px;color:#b9aed2;margin-top:4px}
 .stm2{font-size:11.5px;color:var(--dim);margin-top:2px}
 .std{position:absolute;right:10px;top:13px;font-size:11px;color:#6f6488}
@@ -1652,8 +1654,9 @@ function nextStop(){
 /* ================= 玩家數據（免註冊原型：ntfy.sh 當臨時存儲） =================
    ntfy 免費版訊息保留 12 小時，所以統計頁只看得到最近半天。
    正式版應該換成有持久化的後端（Cloudflare Worker + KV）。 */
-const STAT_TOPIC='cissp-rogue-k7m2x9q4';
+const STAT_TOPIC='study-rogue-k7m2x9q4';
 const STAT_API='https://ntfy.sh/'+STAT_TOPIC;
+const STAT_GAME='cissp';
 const STAT_KEEP_MS=12*3600*1000;
 
 let STATS=null, STAT_ERR='';
@@ -1668,7 +1671,7 @@ function starTotal(){return Object.values(S.stars||{}).reduce((a,b)=>a+(b||0),0)
 function reportNow(){
   if(!S||typeof S!=='object')return;
   const payload={
-    id:ensurePid(), n:playName().slice(0,14),
+    id:ensurePid(), n:playName().slice(0,14), g:STAT_GAME,
     lv:Object.keys(S.stars||{}).length, ch:maxChapter(), st:starTotal(),
     q:(S.tot&&S.tot.q)||0, c:(S.tot&&S.tot.c)||0,
     ms:Math.round(S.playMs||0), dex:codexGot(), t:Date.now()
@@ -1731,7 +1734,7 @@ function viewStats(){
   return head+`<div class="panel"><div class="ptitle">概況</div>
     <div class="small">${STATS.length} 位玩家 · 合計答題 ${fmtNum(totalQ)} 題 · 合計遊玩 ${fmtDur(totalMs)}</div></div>
   <div class="stlist">${STATS.map(x=>`<div class="strow${x.id===me?' me':''}">
-    <div class="stn">${esc(x.n||'無名玩家')}${x.id===me?'<span class="stme">你</span>':''}</div>
+    <div class="stn">${esc(x.n||'無名玩家')}<span class="stg">${x.g==='econ'?'經濟':'CISSP'}</span>${x.id===me?'<span class="stme">你</span>':''}</div>
     <div class="stm">第 ${x.ch||0} 章通關 · ${x.lv||0} 關 · ${x.st||0} 星</div>
     <div class="stm2">答題 ${fmtNum(x.q||0)} · 正確率 ${x.q?Math.round((x.c||0)/x.q*100):0}% · ${fmtDur(x.ms)} · 圖鑑 ${x.dex||0}</div>
     <div class="std">${fmtAgo(x.t)}</div></div>`).join('')}</div>
