@@ -1228,7 +1228,7 @@ function loadCustom(){try{return JSON.parse(localStorage.getItem(CKEY)||'[]')}ca
 let BANK=BASE.concat(loadCustom());
 
 /* ================= 狀態 ================= */
-function fresh(){return {v:3,stars:{},boss:{},gold:4,items:[],wrong:{},glossary:{},combo:0,mockPass:0,best:0,seen:{},dex:{},egg:false,mix:false,fx:1,snd:true,grow:{},tot:{q:0,c:0},starterPicked:false,starter:null,talkSeen:{},name:'',pid:'',playMs:0,nameAsked:false}}
+function fresh(){return {v:3,stars:{},boss:{},gold:4,items:[],wrong:{},glossary:{},combo:0,mockPass:0,best:0,seen:{},dex:{},egg:false,mix:false,fx:1,snd:true,grow:{},tot:{q:0,c:0},starterPicked:false,starter:null,talkSeen:{},name:'',pid:'',playMs:0,nameAsked:false,sr:{},daily:{d:'',n:0}}}
 let S=fresh();
 try{const raw=localStorage.getItem(SKEY);if(raw){const o=JSON.parse(raw);if(o&&o.v===3)S=Object.assign(fresh(),o)}}catch(e){}
 // 清掉已刪除道具的殘留 id（如舊版錯題本），避免讀取不存在的道具時報錯
@@ -1241,6 +1241,8 @@ if(S.name===undefined)S.name='';
 if(S.pid===undefined)S.pid='';
 if(S.playMs===undefined)S.playMs=0;
 if(S.nameAsked===undefined)S.nameAsked=false;
+if(S.sr===undefined)S.sr={};
+if(S.daily===undefined)S.daily={d:'',n:0};
 /* ===== 道具圖鑑：記錄「曾經擁有過」的道具 ===== */
 const CODEX=()=>ITEMS.filter(i=>i.rarity!=='X'&&!i.evo);
 const codexGot=()=>CODEX().filter(i=>S.dex&&S.dex[i.id]).length;
@@ -1578,6 +1580,12 @@ function setModalHtml(){
         <button class="btn small ${S.snd?'primary':'ghost'}" data-act="snd" data-v="1">開</button>
         <button class="btn small ${S.snd?'ghost':'primary'}" data-act="snd" data-v="0">關</button>
       </div></div>
+    <div class="setrow"><div class="sl">存檔</div>
+      <div class="sbtns">
+        <button class="btn small ghost" data-act="save-export">匯出</button>
+        <button class="btn small ghost" data-act="save-import">匯入</button>
+      </div></div>
+    <div class="small" style="margin-top:6px">進度存在這台裝置的瀏覽器裡，刷新不會丟；清除快取或換裝置才會。匯出可以備份成檔案。</div>
     <div class="small" style="margin-top:10px">關：無火焰、無音效、無動畫。<br>
     標準：連擊火焰、答題音效、稀有道具光效。<br>
     全開：再加上連擊 9 以上的「大當り」爆閃與音效。</div>
@@ -1676,6 +1684,90 @@ const STAT_GAME='cissp';
 const STAT_KEEP_MS=12*3600*1000;
 
 let STATS=null, STAT_ERR='';
+/* ================= 間隔重複（Spaced Repetition） =================
+   每道做過的題都會排進複習隊列：答對往後推一檔，答錯退一檔。
+   階梯是固定天數，不是完整的 SM-2——這個遊戲的題庫不大，
+   固定階梯比動態難度好理解，也不會出現「同一題十年後才複習」。 */
+const SR_DAYS = [1, 3, 7, 21, 60, 180];
+const SR_DAY = 24 * 3600 * 1000;
+const SR_MISS_MS = 30 * 60 * 1000;   // 答錯：半小時後就回來
+const SR_MAX_PER_RUN = 20;
+
+function srUpdate(qid, ok) {
+  if (!S.sr) S.sr = {};
+  const now = Date.now();
+  const r = S.sr[qid] || { lv: 0, n: 0 };
+  if (ok) {
+    r.lv = Math.min(SR_DAYS.length, (r.lv || 0) + 1);
+    r.due = now + SR_DAYS[Math.min(r.lv - 1, SR_DAYS.length - 1)] * SR_DAY;
+  } else {
+    // 答錯不要等一天——半小時後就回到複習隊列，當天有機會再練一次
+    r.lv = 0;
+    r.due = now + SR_MISS_MS;
+  }
+  r.n = (r.n || 0) + 1;
+  r.last = now;
+  S.sr[qid] = r;
+}
+
+function srDueIds() {
+  const now = Date.now();
+  const valid = new Set(BANK.map(q => q.id));
+  return Object.keys(S.sr || {})
+    .filter(id => valid.has(id) && S.sr[id] && S.sr[id].due <= now)
+    .sort((a, b) => (S.sr[a].due || 0) - (S.sr[b].due || 0));
+}
+
+
+/* ================= 每日預算 =================
+   15 分鐘大約做 12 題。不是硬牆——想多玩可以，只是主選單會提醒。 */
+const DAILY_BUDGET = 12;
+
+function dayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+function dailyCount() {
+  if (!S.daily || S.daily.d !== dayKey()) { S.daily = { d: dayKey(), n: 0 }; }
+  return S.daily.n || 0;
+}
+function dailyTick() {
+  dailyCount();
+  S.daily.n = (S.daily.n || 0) + 1;
+}
+function dailyLeft() { return Math.max(0, DAILY_BUDGET - dailyCount()); }
+
+function srTracked() { return Object.keys(S.sr || {}).length; }
+
+function srNextDue() {
+  let min = null;
+  for (const id in S.sr) {
+    if (!S.sr[id] || S.sr[id].due == null) continue;
+    if (min === null || S.sr[id].due < min) min = S.sr[id].due;
+  }
+  return min;
+}
+
+function srFmtWait(ms) {
+  if (ms == null) return '—';
+  if (ms <= 0) return '現在';
+  const d = Math.floor(ms / SR_DAY);
+  if (d >= 1) return d + ' 天後';
+  const h = Math.floor(ms / 3600000);
+  if (h >= 1) return h + ' 小時後';
+  return Math.max(1, Math.round(ms / 60000)) + ' 分鐘後';
+}
+
+function startSrRun() {
+  const ids = srDueIds().slice(0, SR_MAX_PER_RUN);
+  if (!ids.length) { alert('現在沒有到期的題目。'); return; }
+  const qs = pick(ids.map(id => BANK.find(q => q.id === id)), ids.length);
+  B = { mode: 'review', srMode: true, qs, i: 0, hp: 99, maxhp: 99, target: 0, score: 0,
+        combo: 0, correct: 0, sel: null, elim: [], hints: 0, shieldLeft: 0, reviveLeft: 0,
+        dictUses: 0, dictThis: [], gain: 0, crit: false };
+  screen = 'battle'; render();
+}
+
 function ensurePid(){
   if(!S.pid)S.pid='p'+Math.random().toString(36).slice(2,9);
   return S.pid;
@@ -1782,6 +1874,7 @@ function viewMenu(){
    <div class="cond ${S.mockPass>=2?'on':''}">② 模擬考 ≥700 兩次（${S.mockPass}/2，最好 ${S.best}）</div>
    <div class="cond">金幣 <b>${S.gold}</b> · 道具 ${S.items.length}/${SLOTS} · 已答 ${S.tot.q} 題（正確率 ${S.tot.q?Math.round(S.tot.c/S.tot.q*100):0}%）</div>
    <div class="small">第九章「官方綜合模擬」是額外內容，不計入通關判定（要先打完第八章 Boss 才解鎖）。</div>
+   <div class="small" style="margin-top:8px">今日 ${dailyCount()} / ${DAILY_BUDGET} 題${dailyLeft()===0?"　·　今天的額度用完了，剩下的明天再來":"　·　剩 "+dailyLeft()+" 題"}　·　睡前 15 分鐘玩，隔天早上先複習。</div>
    ${itemBar()}
   </div>
   ${S.eggNew?`<div class="panel eggbox"><div class="ptitle">彩蛋已解鎖</div>
@@ -1800,6 +1893,7 @@ function viewMenu(){
    <button class="btn" data-act="stats">玩家數據</button>
    <button class="btn" data-act="codex">道具圖鑑（${codexGot()}/${CODEX().length}）</button>
    <button class="btn" data-act="review">錯題本（${wrongCount()}）</button>
+   <button class="btn" data-act="sr-run">${(()=>{const n=srDueIds().length;return n?`複習（今日 ${n} 題）`:`複習（追蹤 ${srTracked()} 題）`})()}</button>
    <button class="btn ghost" data-act="import">導入題庫</button>
    <button class="btn ghost danger" data-act="reset">重置進度</button>
   </div>
@@ -2337,7 +2431,7 @@ function answer(idx,timedOut){
   const q=B.qs[B.i];
   const leftMs=B.qDeadline?Math.max(0,B.qDeadline-Date.now()):0;
   B.qDeadline=0;
-  B.sel=timedOut?-1:idx;B.gain=0;B.crit=false;B.dmg=0;B.note='';S.tot.q++;
+  B.sel=timedOut?-1:idx;B.gain=0;B.crit=false;B.dmg=0;B.note='';S.tot.q++;dailyTick();
   const won=!timedOut&&idx===q.ans;
   if(won){
     const before=tierOf(B.combo);
@@ -2380,10 +2474,12 @@ function answer(idx,timedOut){
       B.note=(B.note?B.note+'　':'')+`貪食蛇：本關累積 +${Math.round(B.snake*100)}%（答錯就清空）`;
     }
     if(B.mode==='review'&&S.wrong[q.id]){S.wrong[q.id]--;if(S.wrong[q.id]<=0)delete S.wrong[q.id]}
+    srUpdate(q.id,true);
   }else{
     if(S.fx>0)SFX.wrong();
     fxFlash('bad');
     if(!timedOut)S.wrong[q.id]=(S.wrong[q.id]||0)+1;
+    if(!timedOut)srUpdate(q.id,false);
     B.dmg=1;
     if(sumOwned('wrongDmg2'))B.dmg=2; // 孤注一擲：不管連擊，失誤就是 2 點
     // 0x1028：連擊永遠不會斷
@@ -2449,7 +2545,7 @@ function nextQ(){
 function finishBattle(){
   clearInterval(timer);
   const total=B.qs.length;
-  if(B.mode==='review'){B=null;screen='review';render();return}
+  if(B.mode==='review'){const back=B.srMode?'menu':'review';B=null;screen=back;render();return}
   const pass=B.score>=B.target&&B.hp>0;
   const ch=B.mode==='boss'?B.ch:L(B.currentLevel).ch;
   if(!pass){
@@ -2664,6 +2760,13 @@ document.addEventListener('click',e=>{
     if(el.classList.contains('modal') && e.target.closest('.mbox')) return;
     S.setOpen=false;render()}
   else if(act==='fx'){S.fx=+el.dataset.v;save();render()}
+  else if(act==='save-export'){exportSave()}
+  else if(act==='save-import'){
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='.json,application/json';
+    inp.onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)importSaveFile(f)};
+    inp.click();
+  }
   else if(act==='snd'){S.snd=el.dataset.v==='1';save();render()}
   else if(act==='mix-toggle'){S.mix=!S.mix;save();render()}
   else if(act==='map'){
@@ -2702,6 +2805,7 @@ document.addEventListener('click',e=>{
   else if(act==='codex'){screen='codex';render()}
   else if(act==='egg-ack'){S.eggNew=false;save();render()}
   else if(act==='review'){screen='review';render()}
+  else if(act==='sr-run'){startSrRun()}
   else if(act==='review-run'){
     const ids=wrongIds();const qs=pick(ids.map(id=>BANK.find(q=>q.id===id)),Math.min(10,ids.length));
     B={mode:'review',qs,i:0,hp:99,maxhp:99,target:0,score:0,combo:0,correct:0,sel:null,elim:[],hints:0,
