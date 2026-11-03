@@ -684,6 +684,48 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-acti
   .bgart{opacity:.58;background-position:left bottom;background-size:auto 100%;filter:brightness(1.25) saturate(1.4)}
   .frameled::before{border-width:2px}
 }
+
+/* ===== 移動端渲染修補 =====
+   手機 GPU 上有兩個東西會出事：
+   1. 多層 backdrop-filter 疊在一起 —— 某些 Android WebView 會整層重繪成黑塊，
+      文字也會被畫兩次（看起来像重影）。
+   2. 全屏圖層跑 filter 動畫（#stage 的 meshBreath）—— 每一輪都讓底下所有
+      合成層重算，閃爍就是這樣來的。
+   兩者疊加最嚴重，所以小螢幕直接把它們關掉，改用純色／半透明底替代。 */
+@media (max-width:640px){
+  /* 1) 關掉所有 backdrop-filter */
+  .panel,.qcard,.modal,.bbar,.hud,.setbox,.mbox,
+  body[data-scr="battle"] .bbar,body[data-scr="mock"] .bbar,
+  body[data-scr="battle"] .qcard,body[data-scr="mock"] .qcard,
+  body[data-scr="battle"] .hud{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+  /* 拿掉模糊後底色要補實一點，不然對比度會掉 */
+  .panel{background:linear-gradient(180deg,rgba(34,26,62,.94),rgba(20,15,38,.96))!important}
+  .qcard{background:linear-gradient(180deg,rgba(28,21,54,.96),rgba(18,13,34,.97))!important}
+  body[data-scr="battle"] .hud{
+    background:linear-gradient(180deg,rgba(26,20,48,.93),rgba(16,12,30,.95))!important}
+  .modal{background:rgba(8,6,16,.82)!important}
+
+  /* 2) 關掉背景的 filter 呼吸動畫 */
+  #stage{animation:none!important}
+
+  /* 3) 道具與 hud 內文字：關掉可能造成重影的合成提示 */
+  .chip{
+    -webkit-font-smoothing:antialiased;
+    transform:translateZ(0);
+    will-change:auto;
+  }
+  /* 4) 全屏特效層避免在低端 GPU 上重繪 */
+  .bgart{
+    filter:brightness(1.25) saturate(1.4);
+    transform:translateZ(0);
+  }
+  body[data-scr="battle"] .bgart{
+    filter:brightness(1.3) saturate(1.5);
+  }
+}
 </style>
 </head>
 <body>
@@ -1258,7 +1300,7 @@ function loadCustom(){try{return JSON.parse(localStorage.getItem(CKEY)||'[]')}ca
 let BANK=BASE.concat(loadCustom());
 
 /* ================= 狀態 ================= */
-function fresh(){return {v:3,stars:{},boss:{},gold:4,items:[],wrong:{},glossary:{},combo:0,mockPass:0,best:0,seen:{},dex:{},egg:false,mix:false,fx:1,snd:true,grow:{},tot:{q:0,c:0},starterPicked:false,starter:null,talkSeen:{},name:'',pid:'',playMs:0,nameAsked:false,sr:{},daily:{d:'',n:0}}}
+function fresh(){return {v:3,stars:{},boss:{},gold:4,items:[],wrong:{},glossary:{},combo:0,mockPass:0,best:0,seen:{},dex:{},egg:false,mix:false,fx:1,snd:true,grow:{},tot:{q:0,c:0},starterPicked:false,starter:null,talkSeen:{},name:'',pid:'',playMs:0,nameAsked:false,sr:{},daily:{d:'',n:0},study:{lastDone:''}}}
 let S=fresh();
 try{const raw=localStorage.getItem(SKEY);if(raw){const o=JSON.parse(raw);if(o&&o.v===3)S=Object.assign(fresh(),o)}}catch(e){}
 // 清掉已刪除道具的殘留 id（如舊版錯題本），避免讀取不存在的道具時報錯
@@ -1273,6 +1315,7 @@ if(S.playMs===undefined)S.playMs=0;
 if(S.nameAsked===undefined)S.nameAsked=false;
 if(S.sr===undefined)S.sr={};
 if(S.daily===undefined)S.daily={d:'',n:0};
+if(S.study===undefined)S.study={lastDone:''};
 /* ===== 道具圖鑑：記錄「曾經擁有過」的道具 ===== */
 const CODEX=()=>ITEMS.filter(i=>i.rarity!=='X'&&!i.evo);
 const codexGot=()=>CODEX().filter(i=>S.dex&&S.dex[i.id]).length;
@@ -1872,6 +1915,7 @@ function setModalHtml(){
     <div class="small" style="margin-top:10px">關：無火焰、無音效、無動畫。<br>
     標準：連擊火焰、答題音效、稀有道具光效。<br>
     全開：再加上連擊 9 以上的「大當り」爆閃與音效。</div>
+    <div class="small" style="margin-top:9px;line-height:1.8">開著這個畫面時會<b>暫停計時</b>（Boss／模擬考的倒數、限時詞條、遊玩時長），關掉就繼續。<br><span style="color:var(--gold)">（暫停時間）</span></div>
     <div class="row"><button class="btn small ghost" data-act="go-menu">回到主頁面</button><button class="btn small ghost" data-act="settings-close">關閉</button></div>
   </div></div>`;
 }
@@ -1932,7 +1976,39 @@ function render(){
   initStage();
   if(!(S.fx===2&&tier>=9))document.body.classList.remove('pachi');
   if(B&&B.flash)B.flash=0; // 全屏連擊提示只演一次，之後的 render 不再重播
-  if(B&&B.deadline&&(screen==='battle'||screen==='mock'))startTimer();
+  if(B&&B.deadline&&(screen==='battle'||screen==='mock')&&!S.setOpen&&!pausedAt)startTimer();
+}
+/* 開設定時暫停計時：Boss／模擬考的總倒數、限時詞條的單題倒數、
+   還有下面那個每 15 秒累加的遊玩時長。關掉設定後把流逝的時間補回去。 */
+/* 中途離開戰鬥＝放棄這一關，連擊一併斷掉。
+   不然可以「跳過不會的題 → 回主畫面 → 連擊還在」，等於白送倍率。 */
+function abandonBattle() {
+  if (!B) return false;
+  const inBattle = (screen === 'battle' || screen === 'mock');
+  if (timer) { clearInterval(timer); timer = null; }
+  pausedAt = 0;
+  if (inBattle) {
+    S.combo = 0;
+    save();
+  }
+  return inBattle;
+}
+
+let pausedAt = 0;
+function pauseTimer() {
+  if (pausedAt) return;
+  pausedAt = Date.now();
+  if (timer) { clearInterval(timer); timer = null; }
+}
+function resumeTimer() {
+  if (!pausedAt) return;
+  const delta = Date.now() - pausedAt;
+  pausedAt = 0;
+  if (B) {
+    if (B.deadline) B.deadline += delta;
+    if (B.qDeadline) B.qDeadline += delta;
+  }
+  if (B && (screen === 'battle' || screen === 'mock')) startTimer();
 }
 function startTimer(){
   clearInterval(timer);timer=setInterval(()=>{
@@ -2005,6 +2081,86 @@ function srDueIds() {
 /* ================= 每日預算 =================
    15 分鐘大約做 12 題。不是硬牆——想多玩可以，只是主選單會提醒。 */
 const DAILY_BUDGET = 12;
+
+
+/* ================= 每日收尾與隔日複習 =================
+   「完成今天的學習」只記一個日期。「複習昨天的學習」靠間隔重複裡每題的 last
+   時間戳反推昨天碰過哪些題，不需要另外存一份清單。 */
+function dateKey(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+function yesterdayKey() {
+  return dateKey(new Date(Date.now() - 86400000));
+}
+const YESTERDAY_RANDOM = 4;   // 除了錯題以外，再隨機加 4 題
+
+/* 隔天複習＝昨天答錯的全部 ＋ 另外隨機抽 4 題（不從錯題裡湊）。
+   答錯的判定：間隔重複把 lv 退回 0，所以昨天碰過又是 lv=0 的就是錯的。 */
+function yesterdayMissed() {
+  const yk = yesterdayKey();
+  const valid = new Set(BANK.map(q => q.id));
+  const hit = [];
+  for (const id in (S.sr || {})) {
+    const r = S.sr[id];
+    if (!r || !r.last || !valid.has(id)) continue;
+    if (dateKey(new Date(r.last)) !== yk) continue;
+    if ((r.lv || 0) === 0) hit.push(id);
+  }
+  return hit;
+}
+
+function yesterdayTouched() {
+  const yk = yesterdayKey();
+  const valid = new Set(BANK.map(q => q.id));
+  const out = [];
+  for (const id in (S.sr || {})) {
+    const r = S.sr[id];
+    if (!r || !r.last || !valid.has(id)) continue;
+    if (dateKey(new Date(r.last)) === yk) out.push(id);
+  }
+  return out;
+}
+
+function yesterdayRandomCount() {
+  return Math.max(0, yesterdayIds().length - yesterdayMissed().length);
+}
+function yesterdayIds() {
+  const missed = yesterdayMissed();
+  const pool = yesterdayTouched().filter(id => !missed.includes(id));
+  const extra = [];
+  // 從「昨天碰過但不是錯題」裡隨機抽 4 題
+  while (extra.length < YESTERDAY_RANDOM && pool.length) {
+    const k = Math.floor(Math.random() * pool.length);
+    extra.push(pool.splice(k, 1)[0]);
+  }
+  return missed.concat(extra);
+}
+function todayDone() {
+  return S.study && S.study.lastDone === dateKey();
+}
+function yesterdayDone() {
+  return S.study && S.study.lastDone === yesterdayKey();
+}
+function finishDay() {
+  const n = dailyCount();
+  S.study = S.study || { lastDone: '' };
+  S.study.lastDone = dateKey();
+  save();
+  screen = 'menu'; render();
+  // 用一個簡單的提示，不用 alert 擋流程
+  const el = document.getElementById('dayDoneFlash');
+  if (el) { el.style.display = 'block'; setTimeout(() => { el.style.display = 'none'; }, 4200); }
+}
+function reviewYesterday() {
+  const ids = yesterdayIds();
+  if (!ids.length) { alert('昨天沒有做過的題。'); return; }
+  const qs = pick(ids.map(id => BANK.find(q => q.id === id)), ids.length);
+  B = { mode: 'review', srMode: true, qs, i: 0, hp: 99, maxhp: 99, target: 0, score: 0,
+        combo: 0, correct: 0, sel: null, elim: [], hints: 0, shieldLeft: 0, reviveLeft: 0,
+        dictUses: 0, dictThis: [], gain: 0, crit: false };
+  screen = 'battle'; render();
+}
 
 function dayKey() {
   const d = new Date();
@@ -2160,6 +2316,7 @@ function viewMenu(){
    <div class="small" style="margin-top:8px">今日 ${dailyCount()} / ${DAILY_BUDGET} 題${dailyLeft()===0?"　·　今天的額度用完了，剩下的明天再來":"　·　剩 "+dailyLeft()+" 題"}　·　睡前 15 分鐘玩，隔天早上先複習。</div>
    ${itemBar()}
   </div>
+  ${yesterdayDone()&&yesterdayIds().length?`<div class="panel" style="border-color:rgba(120,200,150,.35)"><div class="ptitle">昨天的學習</div><div class="small">昨天答錯 ${yesterdayMissed().length} 題，再隨機挑 ${yesterdayRandomCount()} 題，共 ${yesterdayIds().length} 題。</div><div class="row"><button class="btn primary" data-act="review-yesterday">複習昨天的學習（${yesterdayIds().length} 題）</button></div></div>`:''}  <div id="dayDoneFlash" style="display:none" class="panel" style="border-color:rgba(120,200,150,.35)"><div class="small" style="color:#8fd6a8">今天的學習標記完成了。明天打開會有「複習昨天的學習」。</div></div>
   ${S.eggNew?`<div class="panel eggbox"><div class="ptitle">彩蛋已解鎖</div>
    <div class="small">圖鑑集齊了。從現在開始，商店與過關獎勵裡可能出現一件圖鑑上沒有的道具（<b>0x1028</b>），權重比傳說更低——抽不到是正常的。</div>
    <div class="row"><button class="btn small" data-act="egg-ack">知道了</button></div></div>`:''}
@@ -2229,6 +2386,12 @@ function viewMap(){
       h+=`<div class="lv lock"><div class="nm">完成上一章 Boss 後解鎖</div><div class="st"></div></div>`;
     }
   }
+  h+=`<div style="text-align:center;margin-top:22px;padding:16px 10px;border-top:1px solid rgba(107,82,168,.28)">`
+    + (todayDone()
+        ? `<button class="btn small ghost" data-act="finish-day">今天已收工 &#183; 再點一次重新標記</button>`
+        : `<button class="btn primary" data-act="finish-day">完成今天的學習</button>`)
+    + `<div class="small" style="margin-top:9px;line-height:1.8">複習完、今天不想再玩了，就按上面那顆。<br>明天開起來會有「複習昨天的學習」。</div>`
+    + `</div>`;
   h+=`<div class="row"><button class="btn small ghost" data-act="menu">← 返回主菜單</button></div>`;
   return h;
 }
@@ -3036,14 +3199,14 @@ document.addEventListener('click',e=>{
   }
   const el=e.target.closest('[data-act]');if(!el)return;
   const act=el.dataset.act;
-  if(act==='settings'){S.setOpen=true;render()}
-  else if(act==='go-menu'){S.setOpen=false;screen='menu';render()}
+  if(act==='settings'){S.setOpen=true;pauseTimer();render()}
+  else if(act==='go-menu'){const was=abandonBattle();S.setOpen=false;if(!was)resumeTimer();screen='menu';B=null;render()}
   else if(act==='resume'){const ns=nextStop();if(!ns)return;
     if(ns.type==='boss'){startBoss(ns.ch)}
     else{B={currentLevel:ns.id};screen='intro';render()}}
   else if(act==='settings-close'){
     if(el.classList.contains('modal') && e.target.closest('.mbox')) return;
-    S.setOpen=false;render()}
+    S.setOpen=false;resumeTimer();render()}
   else if(act==='fx'){S.fx=+el.dataset.v;save();render()}
   else if(act==='save-export'){exportSave()}
   else if(act==='save-import'){
@@ -3062,7 +3225,7 @@ document.addEventListener('click',e=>{
     screen='map';render()}
   else if(act==='starter'){pickStarter(el.dataset.id)}
   else if(act==='devtalk'){screen='devtalk';render()}
-  else if(act==='menu'){screen='menu';render()}
+  else if(act==='menu'){abandonBattle();screen='menu';B=null;render()}
   else if(act==='talk-go'){afterTalk(B.talkLevel)}
   else if(act==='recall-show'){if(B&&B.rl)B.rl.shown=true;render()}
   else if(act==='recall-rate'){
@@ -3091,6 +3254,8 @@ document.addEventListener('click',e=>{
   else if(act==='egg-ack'){S.eggNew=false;save();render()}
   else if(act==='review'){screen='review';render()}
   else if(act==='sr-run'){startSrRun()}
+  else if(act==='finish-day'){finishDay()}
+  else if(act==='review-yesterday'){reviewYesterday()}
   else if(act==='review-run'){
     const ids=wrongIds();const qs=pick(ids.map(id=>BANK.find(q=>q.id===id)),Math.min(10,ids.length));
     B={mode:'review',qs,i:0,hp:99,maxhp:99,target:0,score:0,combo:0,correct:0,sel:null,elim:[],hints:0,
@@ -3115,7 +3280,7 @@ document.addEventListener('click',e=>{
   else if(act==='dict'){lookup()}
   else if(act==='dict-close'){B.dictOpen=false;render()}
   else if(act==='next'){nextQ()}
-  else if(act==='flee'){clearInterval(timer);screen='map';B=null;render()}
+  else if(act==='flee'){abandonBattle();screen='map';B=null;render()}
   else if(act==='retry'){B.sel=null;if(B.mode==='boss')startBoss(B.ch);else startLevel(B.currentLevel)}
   else if(act==='boss'){B={mode:'bossintro',ch:+el.dataset.ch};screen='bossintro';render()}
   else if(act==='boss-go'){startBoss(+el.dataset.ch)}
@@ -3173,7 +3338,7 @@ document.addEventListener('keydown',e=>{
 render();
 
 /* 遊玩時長：每 15 秒記一次，頁面隱藏不計 */
-setInterval(()=>{ if(!document.hidden) S.playMs=(S.playMs||0)+15000; },15000);
+setInterval(()=>{ if(!document.hidden && !S.setOpen) S.playMs=(S.playMs||0)+15000; },15000);
 /* 每 3 分鐘自動上報一次進度 */
 setInterval(()=>{ if(!document.hidden) reportNow(); },180000);
 /* 切走頁面時存檔並上報 */
