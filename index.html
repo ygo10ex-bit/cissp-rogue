@@ -725,6 +725,22 @@ html,body{overflow-x:hidden;overscroll-behavior-x:none;max-width:100%;touch-acti
   .frameled::before{border-width:2px}
 }
 
+/* HUD 固定在頂部 —— 手機上往下滑題目時，血量／第 x/y 題／得分 要一直看得到 */
+@media (max-width:640px){
+  body[data-scr="battle"] .hud,
+  body[data-scr="mock"] .hud{
+    position:sticky;
+    top:0;
+    z-index:45;
+    margin-top:0;
+    padding-top:6px;
+  }
+}
+/* 桌機也一起固定，滾長題目的時候同樣受用 */
+@media (min-width:641px){
+  .hud{position:sticky;top:0;z-index:45}
+}
+
 /* ===== 移動端渲染修補 =====
    手機 GPU 上有兩個東西會出事：
    1. 多層 backdrop-filter 疊在一起 —— 某些 Android WebView 會整層重繪成黑塊，
