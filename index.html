@@ -2322,6 +2322,7 @@ function reviewYesterday() {
   if (!ids.length) { alert('昨天没有做过的题。'); return; }
   let qs = pick(ids.map(id => BANK.find(q => q.id === id)), ids.length);
   qs = interleaveOrder(qs);   // E：易混淆的概念排在一起
+  qs = shuffleRun(qs);        // 選項打亂（方案 A）
   B = { mode: 'review', srMode: true, qs, i: 0, hp: 99, maxhp: 99, target: 0, score: 0,
         combo: 0, correct: 0, sel: null, elim: [], hints: 0, shieldLeft: 0, reviveLeft: 0,
         dictUses: 0, dictThis: [], gain: 0, crit: false };
@@ -2423,6 +2424,7 @@ function startSrRun() {
   if (!ids.length) { alert('现在没有到期的题目。'); return; }
   let qs = pick(ids.map(id => BANK.find(q => q.id === id)), ids.length);
   qs = interleaveOrder(qs);   // E：易混淆的概念排在一起
+  qs = shuffleRun(qs);
   B = { mode: 'review', srMode: true, qs, i: 0, hp: 99, maxhp: 99, target: 0, score: 0,
         combo: 0, correct: 0, sel: null, elim: [], hints: 0, shieldLeft: 0, reviveLeft: 0,
         dictUses: 0, dictThis: [], gain: 0, crit: false };
@@ -2525,7 +2527,49 @@ function nameModal(){
 }
 
 /* ===== 术语练习：给英文缩写或术语，四选一中文含义 ===== */
-/* ===== A：術語也納入間隔重複 =====
+/* ===== 選項打亂（方案 A）=====
+   每次出題都把選項重排，避免記住位置而不是內容。
+   解析裡的「A ✗ / B ✓」字母會跟著映射，保證對得上。
+   含「以上都不是」這類指代前項的選項，跳過不打亂。 */
+const NO_SHUFFLE_RE = /^(以上都不是|以上所有这些|以上皆是|以上皆非|以上都對|以上均對|以上皆不是|全部皆是|全部皆非)$/;
+
+function canShuffleOpts(q){
+  if(!q||!q.opts||q.opts.length<2) return false;
+  for(const o of q.opts){
+    const t=String(o||'').trim();
+    if(NO_SHUFFLE_RE.test(t)) return false;      // 有指代前項的選項
+    if(/^以上/.test(t) && t.length<=8) return false;
+  }
+  return true;
+}
+
+function shuffleOptions(q){
+  if(!canShuffleOpts(q)) return q;
+  const n=q.opts.length;
+  const perm=[];
+  for(let i=0;i<n;i++) perm[i]=i;
+  for(let i=n-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    const t=perm[i]; perm[i]=perm[j]; perm[j]=t;
+  }
+  const newOpts=new Array(n);
+  for(let old=0;old<n;old++) newOpts[perm[old]]=q.opts[old];
+  const newAns=perm[q.ans];
+  // 解析裡的字母重映射（只動行首的 A-D + 勾叉）
+  const newExp=(q.exp||'').replace(/^([A-D])(\s*)([✗✓])/gm,(m,letter,sp,mark)=>{
+    const old='ABCD'.indexOf(letter);
+    if(old<0||old>=n) return m;
+    return 'ABCD'[perm[old]]+sp+mark;
+  });
+  return Object.assign({},q,{opts:newOpts,ans:newAns,exp:newExp});
+}
+
+/* 整批打亂（出題點統一呼叫）· __shuffled */
+function shuffleRun(qs){
+  return (qs||[]).map(q=>shuffleOptions(q));
+}
+
+/* ===== 選項打亂術語也納入間隔重複 =====
    答錯的詞 30 分鐘後回來；連續答對 3 次的算「掌握」，不再出。 */
 function termSrUpdate(term, ok){
   if(!S.termSr) S.termSr={};
@@ -2764,7 +2808,7 @@ function startWeakRun(){
   const tags=new Set(w.map(x=>x.tag));
   const pool=BANK.filter(q=>tags.has(q.tag||'未分類'));
   if(pool.length<3){ alert('这些领域的题目太少，先去闯关。'); return; }
-  const qs=pick(pool,Math.min(8,pool.length));
+  const qs=shuffleRun(pick(pool,Math.min(8,pool.length)));
   B={mode:'review',srMode:true,weakMode:true,qs,i:0,hp:99,maxhp:99,target:0,score:0,
      combo:0,correct:0,sel:null,elim:[],hints:0,shieldLeft:0,reviveLeft:0,
      dictUses:0,dictThis:[],gain:0,crit:false,mods:[],reflow:false,
@@ -3436,7 +3480,7 @@ function startLevel(id){
   const od=sumOwned('overdraft');
   if(od){S.gold+=od;save()} // 透支卡：先预支，失败再赔
   const hpCost=sumOwned('startHpCost');
-  B={mode:'level',currentLevel:id,qs:mixSpacedReview(pick(pool,6,mixWeight(id)),id),i:0,hp:Math.max(1,myMax-hpCost),maxhp:myMax,target:l.target,
+  B={mode:'level',currentLevel:id,qs:shuffleRun(mixSpacedReview(pick(pool,6,mixWeight(id)),id)),i:0,hp:Math.max(1,myMax-hpCost),maxhp:myMax,target:l.target,
      score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],hints:sumOwned('hints'),shieldLeft:sumOwned('shield')+Math.round(growBonus('shield')),lvMult:l.mult||1,
      skips:sumOwned('skips'),dictUses:0,dictThis:[],snake:0,qStart:Date.now(),
      reviveLeft:owned().some(x=>x.revive)?1:0,gain:0,crit:false,
@@ -3458,7 +3502,7 @@ function startBossDrill(ch){
   if(pool.length<BOSS_DRILL_N){ startBoss(ch); return; }
   const old=BANK.filter(q=>{const lv=L(q.level);return lv&&lv.ch<ch;});
   const use=old.length>=BOSS_DRILL_N?old:pool;
-  const qs=pick(use,BOSS_DRILL_N);
+  const qs=shuffleRun(pick(use,BOSS_DRILL_N));
   B={mode:'drill',ch,qs,i:0,hp:99,maxhp:99,target:0,score:0,combo:0,correct:0,
      sel:null,elim:[],hints:0,shieldLeft:0,reviveLeft:0,dictUses:0,dictThis:[],
      gain:0,crit:false,mods:[],reflow:false,reflowed:new Set(),keepLeft:0,
@@ -3495,7 +3539,7 @@ function startBoss(ch){
   const od=sumOwned('overdraft');
   if(od){S.gold+=od;save()}
   const hpCost=sumOwned('startHpCost');
-  B={mode:'boss',currentLevel:levelsOf(ch).slice(-1)[0].id,ch,qs:pick(pool,20,mixWeightCh(ch)),i:0,hp:Math.max(1,myMax-hpCost),maxhp:myMax,
+  B={mode:'boss',currentLevel:levelsOf(ch).slice(-1)[0].id,ch,qs:shuffleRun(pick(pool,20,mixWeightCh(ch))),i:0,hp:Math.max(1,myMax-hpCost),maxhp:myMax,
      target:c.bossTarget,lvMult:(levelsOf(ch).slice(-1)[0].mult)||1,score:0,combo:(S.combo||0),correct:0,sel:null,elim:[],
      hints:amnesia?0:sumOwned('hints'),
      shieldLeft:sumOwned('shield')+Math.round(growBonus('shield')),skips:sumOwned('skips'),dictUses:0,dictThis:[],snake:0,qStart:Date.now(),
@@ -3799,7 +3843,7 @@ function pickOffer(id){
 }
 function skipOffer(){S.gold+=4;save();openShop();}
 function startMock(){
-  const qs=pick(BANK,Math.min(100,BANK.length));
+  const qs=shuffleRun(pick(BANK,Math.min(100,BANK.length)));
   B={mode:'mock',qs,i:0,answers:new Array(qs.length).fill(null),deadline:Date.now()+180*60*1000};
   screen='mock';render();
 }
