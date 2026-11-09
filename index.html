@@ -1443,9 +1443,19 @@ function saveCopy(){
   }
 }
 
+function isMobileUA(){
+  return /Android|iPhone|iPad|iPod|Mobile|MicroMessenger|QQ\//i.test(navigator.userAgent||'');
+}
+
 function exportSave(){
   const data=JSON.stringify(S,null,1);
   const fname='cissp-save-'+dayKey()+'.json';
+
+  // 手機：下載八成會被攔，直接走手動備份頁（可複製）
+  if(isMobileUA()){
+    showSaveText(data);
+    return;
+  }
 
   // ① 優先：Chrome/Edge 的原生存檔對話框（HTTPS 或 localhost 才可用）
   if(window.showSaveFilePicker){
@@ -1548,7 +1558,7 @@ function importSaveFile(file){
   reader.readAsText(file);
 }
 
-function exportSave(){syncDex();try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
+function save(){syncDex();try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
 syncDex();
 
 const L=(id)=>LEVELS.find(x=>x.id===id);
