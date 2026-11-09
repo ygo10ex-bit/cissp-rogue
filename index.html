@@ -1423,7 +1423,46 @@ function syncDex(){
   if(!S.egg&&codexDone()){S.egg=true;S.eggNew=true} // 集齐 → 彩蛋开启
 }
 const eggOn=()=>!!S.egg;
-function save(){syncDex();try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
+/* ===== 存檔匯出 / 匯入 ===== */
+function exportSave(){
+  try{
+    const data=JSON.stringify(S,null,1);
+    const blob=new Blob([data],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='cissp-save-'+dayKey()+'.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }catch(e){
+    alert('导出失败：'+e.message);
+  }
+}
+
+function importSaveFile(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const o=JSON.parse(ev.target.result);
+      if(!o||typeof o!=='object') throw new Error('文件格式不对');
+      if(o.v!==undefined&&o.v!==3) throw new Error('存档版本不符（需要 v3）');
+      S=Object.assign(fresh(),o);
+      // 清掉已刪除道具的殘留 id
+      S.items=(S.items||[]).filter(id=>ITEMS.some(i=>i.id===id));
+      save();
+      alert('存档已导入。');
+      screen='menu';render();
+    }catch(err){
+      alert('导入失败：'+err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function exportSave(){syncDex();try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
 syncDex();
 
 const L=(id)=>LEVELS.find(x=>x.id===id);
@@ -2896,6 +2935,7 @@ function viewMenu(){
    <button class="btn" data-act="codex">道具图鉴（${codexGot()}/${CODEX().length}）</button>
    <button class="btn" data-act="review">错题本（${wrongCount()}）</button>
    <button class="btn" data-act="sr-run">${(()=>{const n=srDueIds().length;return n?`复习（今日 ${n} 题）`:`复习（追踪 ${srTracked()} 题）`})()}</button>
+   <button class="btn ghost" data-act="export-save">导出存档</button>
    <button class="btn ghost" data-act="import">导入题库</button>
    <button class="btn ghost danger" data-act="reset">重置进度</button>
   </div>
@@ -3906,7 +3946,7 @@ document.addEventListener('click',e=>{
   else if(act==='save-import'){
     const inp=document.createElement('input');
     inp.type='file';inp.accept='.json,application/json';
-    inp.onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)importSaveFile(f)};
+    inp.onchange=e=>{importSaveFile(e.target.files&&e.target.files[0])};
     inp.click();
   }
   else if(act==='snd'){S.snd=el.dataset.v==='1';save();render()}
@@ -3968,6 +4008,7 @@ document.addEventListener('click',e=>{
        shieldLeft:0,reviveLeft:0,dictUses:0,dictThis:[],gain:0,crit:false};
     screen='battle';render();
   }
+  else if(act==='export-save'){exportSave()}
   else if(act==='import'){screen='import';render()}
   else if(act==='reset'){resetAll()}
   else if(act==='intro'){B={currentLevel:el.dataset.id,les:0};screen='intro';render()}
