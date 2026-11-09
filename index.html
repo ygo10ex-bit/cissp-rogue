@@ -1703,17 +1703,33 @@ function renderExp(q){
   if(!raw) return '';
   const parts=[];
   let para=[];
+  let optBuf=[];
+  /* 选项点评先攒起来，按 A→D 排序再输出。
+     选项被打乱后，解析里的字母也跟着换了位，不排序的话点评顺序会和上面
+     的选项顺序对不上（看着像答错题）。 */
+  const flushOpt=()=>{
+    if(!optBuf.length) return;
+    optBuf.sort((a,b)=>(a.letter<b.letter?-1:1));
+    for(const o of optBuf){
+      parts.push(`<div class="expopt ${o.ok?'ok':'no'}"><span class="expletter">${o.letter}</span><span class="exptext">${esc(o.text)}</span></div>`);
+    }
+    optBuf=[];
+  };
   const flush=()=>{
+    flushOpt();
     if(para.length){parts.push(`<div class="expp">${esc(para.join(' '))}</div>`);para=[]}
   };
   for(const line of raw.split('\n')){
     const t=line.trim();
-    if(!t){flush();continue}
+    if(!t){
+      // 空行只断正文段落，不断点评块（点评中间夹空行也能一起排序）
+      if(para.length){parts.push(`<div class="expp">${esc(para.join(' '))}</div>`);para=[]}
+      continue;
+    }
     const m=t.match(/^([A-D])\s*([✗✓])\s*(.+)$/);
     if(m){
-      flush();
-      const ok=m[2]==='✓';
-      parts.push(`<div class="expopt ${ok?'ok':'no'}"><span class="expletter">${m[1]}</span><span class="exptext">${esc(m[3])}</span></div>`);
+      if(para.length){parts.push(`<div class="expp">${esc(para.join(' '))}</div>`);para=[]}
+      optBuf.push({letter:m[1], ok:m[2]==='✓', text:m[3]});
       continue;
     }
     // 行内标题：「【官方解析】正文…」也拆成小节标题 + 正文
@@ -1724,6 +1740,7 @@ function renderExp(q){
       if(hm[2]) para.push(hm[2]);
       continue;
     }
+    flushOpt();          // 正文出现 → 点评块先收尾，保持先后顺序
     para.push(t);
   }
   flush();
