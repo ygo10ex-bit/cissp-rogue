@@ -1424,22 +1424,108 @@ function syncDex(){
 }
 const eggOn=()=>!!S.egg;
 /* ===== 存檔匯出 / 匯入 ===== */
-function exportSave(){
+function saveCopy(){
+  const el=document.getElementById('savebox');
+  if(!el){alert('找不到内容');return}
+  el.focus();el.select();
   try{
-    const data=JSON.stringify(S,null,1);
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(el.value).then(
+        ()=>alert('已复制到剪贴板。'),
+        ()=>{document.execCommand('copy');alert('已复制。')}
+      );
+    }else{
+      document.execCommand('copy');
+      alert('已复制。');
+    }
+  }catch(e){
+    alert('复制失败，请手动全选复制。');
+  }
+}
+
+function exportSave(){
+  const data=JSON.stringify(S,null,1);
+  const fname='cissp-save-'+dayKey()+'.json';
+
+  // ① 優先：Chrome/Edge 的原生存檔對話框（HTTPS 或 localhost 才可用）
+  if(window.showSaveFilePicker){
+    (async()=>{
+      try{
+        const handle=await window.showSaveFilePicker({
+          suggestedName:fname,
+          types:[{description:'JSON 存档',accept:{'application/json':['.json']}}]
+        });
+        const w=await handle.createWritable();
+        await w.write(data);
+        await w.close();
+        alert('存档已保存。');
+      }catch(e){
+        if(e&&e.name==='AbortError') return;      // 使用者按取消
+        fallbackDownload(data,fname);
+      }
+    })();
+    return;
+  }
+
+  // ② 沒有原生 API（手機、Safari、file://）→ Blob 下載
+  fallbackDownload(data,fname);
+}
+
+function fallbackDownload(data,fname){
+  try{
     const blob=new Blob([data],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=url;
-    a.download='cissp-save-'+dayKey()+'.json';
+    a.href=url; a.download=fname; a.rel='noopener';
+    a.style.cssText='position:fixed;left:-9999px;top:0;';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    setTimeout(()=>{
+      try{document.body.removeChild(a)}catch(e){}
+      try{URL.revokeObjectURL(url)}catch(e){}
+    },3000);
+    // 下載無法被偵測，3 秒後如果頁面還在這裡就給手動備份的出口
+    setTimeout(()=>{
+      if(document.getElementById('saveoutHint')) return;
+      const tip=document.createElement('div');
+      tip.id='saveoutHint';
+      tip.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;'
+        +'background:#241a44;border:1px solid rgba(255,194,51,.5);border-radius:12px;'
+        +'padding:10px 14px;font-size:12.5px;color:#e8dcc0;max-width:86vw;line-height:1.6;'
+        +'box-shadow:0 8px 24px rgba(0,0,0,.5)';
+      tip.innerHTML='<b style="color:#ffc233">没看到下载？</b> 浏览器可能拦了。'
+        +'<span style="color:#b9aee0"> 点这里手动备份 →</span> '
+        +'<button class="btn small primary" data-act="save-text" style="margin-left:6px">显示存档内容</button>';
+      document.body.appendChild(tip);
+      setTimeout(()=>{try{tip.remove()}catch(e){}},12000);
+    },1200);
   }catch(e){
-    alert('导出失败：'+e.message);
+    showSaveText(data);
   }
 }
+
+/* 最後手段：把存檔內容攤在畫面上，讓你全選複製貼到記事本 */
+function showSaveText(data){
+  S.saveText=data||JSON.stringify(S,null,1);
+  S.setOpen=false;
+  screen='saveout';render();
+}
+
+function viewSaveOut(){
+  const txt=(S.saveText||JSON.stringify(S,null,1));
+  return `<div class="hdr"><div class="logo" style="font-size:20px">手动备份存档</div>
+    <div class="tagline">全选下面的内容，复制，贴到记事本存成 .json 文件</div></div>
+  <div class="card">
+    <textarea id="savebox" class="namein" style="width:100%;height:240px;font-family:ui-monospace,monospace;
+      font-size:11px;line-height:1.5;resize:vertical" readonly>${esc(txt)}</textarea>
+    <div class="row">
+      <button class="btn primary small" data-act="save-copy">复制全部</button>
+      <button class="btn small ghost" data-act="save-back">返回主菜单</button>
+    </div>
+    <div class="small" style="margin-top:8px">复制的文本要完整保留大括号，导入时才认得出来。</div>
+  </div>`;
+}
+
 
 function importSaveFile(file){
   if(!file) return;
@@ -2150,7 +2236,7 @@ function render(){
 
   const map={menu:viewMenu,map:viewMap,intro:viewIntro,battle:viewBattle,fail:viewFail,reward:viewReward,
     shop:viewShop,mock:viewMock,mockresult:viewMockResult,review:viewReview,cards:viewCards,import:viewImport,
-    diff:viewDiff,terms:viewTerms,
+    diff:viewDiff,terms:viewTerms,saveout:viewSaveOut,
     talk:viewTalk,
     recall:viewRecall,
     stats:viewStats,
@@ -4009,6 +4095,9 @@ document.addEventListener('click',e=>{
     screen='battle';render();
   }
   else if(act==='export-save'){exportSave()}
+  else if(act==='save-text'){showSaveText()}
+  else if(act==='save-copy'){saveCopy()}
+  else if(act==='save-back'){S.saveText='';screen='menu';render()}
   else if(act==='import'){screen='import';render()}
   else if(act==='reset'){resetAll()}
   else if(act==='intro'){B={currentLevel:el.dataset.id,les:0};screen='intro';render()}
